@@ -5,65 +5,38 @@ Plugin URI: -
 Description: Content Syndication plugin for uams.edu & uamshealth.com
 Author: uams, Todd McKee, MEd
 Author URI: http://www.uams.edu/
-Version: 0.10
+Version: 1.0
 */
-// Exit if accessed directly
-if( !defined( 'ABSPATH' ) ) exit;
 
-class UAMS_Content_Syndicate {
-	/**
-	 * @var UAMS_Content_Syndicate
-	 */
-	private static $instance;
+namespace UAMS\ContentSyndicate;
 
-	/**
-	 * Maintain and return the one instance and initiate hooks when
-	 * called the first time.
-	 *
-	 * @return \UAMS_Content_Syndicate
-	 */
-	public static function get_instance() {
-		if ( ! isset( self::$instance ) ) {
-			self::$instance = new UAMS_Content_Syndicate;
-			self::$instance->setup_hooks();
-		}
-		return self::$instance;
-	}
-
-	/**
-	 * Setup hooks to include and then activate the plugin's shortcodes.
-	 */
-	public function setup_hooks() {
-		add_action( 'init', array( $this, 'activate_shortcodes' ) );
-	}
-
-	/**
-	 * Include individual and activate individual syndicate shortcodes.
-	 */
-	public function activate_shortcodes() {
-		require_once( dirname( __FILE__ ) . '/includes/syndicate-shortcode-base.php' );
-		require_once( dirname( __FILE__ ) . '/includes/syndicate-shortcode-news.php' );
-		require_once( dirname( __FILE__ ) . '/includes/syndicate-shortcode-people.php' );
-		//require_once( dirname( __FILE__ ) . '/includes/syndicate-shortcode-teams.php' );
-
-		// Add the [uamswp_json] shortcode to pull standard post content.
-		new UAMS_Syndicate_Shortcode_News();
-
-		// Add the [uamswp_people] shortcode to pull profiles from people.uams.edu.
-		new UAMS_Syndicate_Shortcode_People();
-
-		// Add the [uamswp_events] shortcode to pull calendar events.
-		//new UAMS_Syndicate_Shortcode_Events();
-	}
+// If this file is called directly, abort.
+if ( ! defined( 'WPINC' ) ) {
+	die;
 }
 
-add_action( 'after_setup_theme', 'UAMS_Content_Syndicate' );
+add_action( 'plugins_loaded', 'UAMS\ContentSyndicate\bootstrap' );
 /**
- * Start things up.
+ * Loads the WSUWP Content Syndicate base.
  *
- * @return \UAMS_Content_Syndicate
+ * @since 1.0.0
  */
-function UAMS_Content_Syndicate() {
-	return UAMS_Content_Syndicate::get_instance();
+function bootstrap() {
+	include_once __DIR__ . '/includes/class-uams-syndication-shortcode-base.php';
+
+	add_action( 'init', 'UAMS\ContentSyndicate\activate_shortcodes' );
 }
 
+/**
+ * Activates the shortcodes built in with WSUWP Content Syndicate.
+ *
+ * @since 1.0.0
+ */
+function activate_shortcodes() {
+	include_once( dirname( __FILE__ ) . '/includes/class-uams-syndication-shortcode-news.php' );
+
+	// Add the [uamswp_news] shortcode to pull standard post content.
+	new \UAMS_Syndication_Shortcode_News();
+
+	do_action( 'uamswp_content_syndication_shortcodes' );
+}
