@@ -34,13 +34,6 @@ class UAMS_Syndication_Shortcode_Base {
 		'date_format' => 'F j, Y',
 		'offset' => 0,
 		'cache_bust' => '',
-		'profile_type' => '', // Added for people
-		'locations' => '',
-		'conditions' => '',
-		'specialty' => '',
-		'colleges' => '',
-		'academic_positions'  => '',
-		'alpha' => '', // To be added
 	);
 
 	/**
