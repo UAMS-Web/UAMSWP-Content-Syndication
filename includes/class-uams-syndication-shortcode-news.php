@@ -9,6 +9,14 @@ class UAMS_Syndication_Shortcode_News extends UAMS_Syndication_Shortcode_Base {
 
 	public function __construct() {
 		parent::construct();
+		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_syndication_stylesheet' ) );
+	}
+
+	/**
+	 * Enqueue styles specific to the network admin dashboard.
+	 */
+	public function enqueue_syndication_stylesheet() {
+			wp_enqueue_style( 'uamswp-syndication-news-style', plugins_url( '/css/uamswp-syndication-news.css', __DIR__ ), array(), '' );
 	}
 
 	/**
@@ -30,12 +38,14 @@ class UAMS_Syndication_Shortcode_News extends UAMS_Syndication_Shortcode_Base {
 	 *                              - json           Output a JSON object to be used with custom Javascript.
 	 *                              - headlines      Display an unordered list of headlines.
 	 *                              - excerpts       Display only excerpt information in an unordered list.
+	 *                              - cards       	 Display information in a card format.
 	 *                              - full           Display full content for each item.
 	 *     @type string $host                     The hostname to pull items from. Defaults to uamshealth.com.
 	 *     @type string $site                     Overrides setting for host. Hostname and path to pull items from.
 	 *     @type string $university_category_slug The slug of a University Category from the University Taxonomy.
 	 *     @type string $site_category_slug       The slug of a Site Category. Defaults to empty.
 	 *     @type string $tag                      The slug of a tag. Defaults to empty.
+	 *     @type string $style                    Adds additional styles to the wrapper. Defaults to empty.
 	 *     @type string $query                    Allows for a custom WP-API query. Defaults as "posts". Any
 	 *     @type int    $local_count              The number of local items to merge with the remote results.
 	 *     @type int    $count                    The number of items to pull from a feed. Defaults to the
@@ -192,7 +202,7 @@ class UAMS_Syndication_Shortcode_News extends UAMS_Syndication_Shortcode_Base {
 		} elseif ( 'excerpts' === $atts['output'] ) {
 			?>
 			<div class="uamswp-content-syndication-wrapper">
-				<ul class="uamswp-content-syndication-list">
+				<ul class="uamswp-content-syndication-excerpts">
 					<?php
 					$offset_x = 0;
 					foreach ( $new_data as $content ) {
@@ -202,18 +212,50 @@ class UAMS_Syndication_Shortcode_News extends UAMS_Syndication_Shortcode_Base {
 						}
 						?>
 						<li class="uamswp-content-syndication-item">
-							<span class="content-item-thumbnail"><?php if ( $content->thumbnail ) : ?><img src="<?php echo esc_url( $content->thumbnail ); ?>"><?php endif; ?></span>
-							<span class="content-item-title"><a href="<?php echo esc_url( $content->link ); ?>"><?php echo esc_html( $content->title ); ?></a></span>
+							<a class="content-item-thumbnail" href="<?php echo esc_url( $content->link ); ?>"><?php if ( $content->thumbnail ) : ?><img src="<?php echo esc_url( $content->thumbnail ); ?>" alt="?php echo esc_html( $content->thumbalt ); ?>"><?php endif; ?></a>
+							<span class="content-item-title"><a href="<?php echo esc_url( $content->link ); ?>" class="news-link"><?php echo esc_html( $content->title ); ?></a></span>
 							<span class="content-item-byline">
-								<span class="content-item-byline-date"><?php echo esc_html( date( $atts['date_format'], strtotime( $content->date ) ) ); ?></span>
-								<span class="content-item-byline-author"><?php echo esc_html( $content->author_name ); ?></span>
+								<span class="content-item-byline-date"><small><?php echo esc_html( date( $atts['date_format'], strtotime( $content->date ) ) ); ?></small></span> | 
+								<span class="content-item-byline-author"><small><?php echo esc_html( $content->author_name ); ?></small></span>
 							</span>
-							<span class="content-item-excerpt"><?php echo wp_kses_post( $content->excerpt ); ?> <a class="content-item-read-story" href="<?php echo esc_url( $content->link ); ?>">Read Story</a></span>
+							<span class="content-item-excerpt"><?php echo wp_kses_post( $content->excerpt ); ?> <a class="content-item-read-story more" href="<?php echo esc_url( $content->link ); ?>">Read Story</a></span>
 						</li>
 						<?php
 					}
 					?>
 				</ul>
+			</div>
+			<?php
+		} elseif ( 'cards' === $atts['output'] ) {
+			?>
+			<div class="uamswp-content-syndication-wrapper">
+				<div class="uamswp-content-syndication-cards">
+					<?php
+					$offset_x = 0;
+					foreach ( $new_data as $content ) {
+						if ( $offset_x < absint( $atts['offset'] ) ) {
+							$offset_x++;
+							continue;
+						}
+						?>
+					    <div class="default-card">
+					    	<div class="card-image"><?php if ( $content->image ) : ?><img src="<?php echo esc_url( $content->image ); ?>" alt="<?php echo esc_html( $content->imagecaption ); ?>"><?php else: ?><img src="http://via.placeholder.com/540x272" alt=" "><?php endif; ?></div>
+							<div class="card-body">
+					      		<span>
+					      			<h3>
+					                	<a href="<?php echo esc_url( $content->link ); ?>" class="pic-title"><?php echo esc_html( $content->title ); ?></a>
+					              	</h3>
+					      			<?php echo wp_kses_post( $content->excerpt ); ?>
+					              	<a href="<?php echo esc_url( $content->link ); ?>" class="pic-text-more uams-btn btn-sm btn-red">Read more</a>
+					            </span>
+
+							</div>
+
+					    </div>
+						<?php
+					}
+					?>
+				</div>
 			</div>
 			<?php
 		} elseif ( 'full' === $atts['output'] ) {
@@ -293,10 +335,25 @@ class UAMS_Syndication_Shortcode_News extends UAMS_Syndication_Shortcode_Base {
 
 				if ( isset( $subset_feature->sizes->{'post-thumbnail'} ) ) {
 					$subset->thumbnail = $subset_feature->sizes->{'post-thumbnail'}->source_url;
+					$subset->thumbalt = $post->_embedded->{'wp:featuredmedia'}[0]->alt_text;
+					$subset->thumbcaption = $post->_embedded->{'wp:featuredmedia'}[0]->caption->rendered;
 				} elseif ( isset( $subset_feature->sizes->{'thumbnail'} ) ) {
 					$subset->thumbnail = $subset_feature->sizes->{'thumbnail'}->source_url;
+					$subset->thumbalt = $post->_embedded->{'wp:featuredmedia'}[0]->alt_text;
+					$subset->thumbcaption = $post->_embedded->{'wp:featuredmedia'}[0]->caption->rendered;
 				} else {
 					$subset->thumbnail = $post->_embedded->{'wp:featuredmedia'}[0]->source_url;
+					$subset->thumbalt = $post->_embedded->{'wp:featuredmedia'}[0]->alt_text;
+					$subset->thumbcaption = $post->_embedded->{'wp:featuredmedia'}[0]->caption->rendered;
+				}
+
+				// Add Medium Image
+				if ( isset( $subset_feature->sizes->{'portfolio-one'} ) ) {
+					$subset->image = $subset_feature->sizes->{'portfolio-one'}->source_url;
+					$subset->imagealt = $post->_embedded->{'wp:featuredmedia'}[0]->alt_text;
+					$subset->imagecaption = $post->_embedded->{'wp:featuredmedia'}[0]->caption->rendered;
+				} else {
+					$subset->image = false;
 				}
 			} else {
 				$subset->thumbnail = false;

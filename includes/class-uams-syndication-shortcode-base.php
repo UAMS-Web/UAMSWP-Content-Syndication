@@ -23,11 +23,12 @@ class UAMS_Syndication_Shortcode_Base {
 		'host' => 'uamshealth.com', // eventually 'news.uams.edu'
 		'scheme' => 'https',
 		'site' => '',
-		'university_category_slug' => '',
-		'university_organization_slug' => '',
-		'university_location_slug' => '',
+//		'university_category_slug' => '', //unused for now
+//		'university_organization_slug' => '', //unused for now
+//		'university_location_slug' => '', //unused for now
 		'site_category_slug' => '',
 		'tag' => '',
+		'style' => '',
 		'query' => 'posts',
 		'local_count' => 0,
 		'count' => false,
@@ -79,6 +80,20 @@ class UAMS_Syndication_Shortcode_Base {
 	public function display_shortcode( $atts ) {
 		return '';
 	}
+
+	/**
+	 * Enqueue the scripts and styles when a page with the proper shortcode tag is being displayed.
+	 */
+	// public function enqueue_syndication_scripts() {
+	// 	// if ( ! is_singular() ) {
+	// 	// 	return;
+	// 	// }
+
+	// 	$post = get_post();
+	// 	if ( isset( $post->post_content ) && has_shortcode( $post->post_content, 'uamswp_news' ) ) {
+	// 		//wp_register_style( 'uamswp-syndication-news', plugins_url('/css/uamswp-syndication-news.css', __FILE__ ) );
+	// 	}
+	// }
 
 	/**
 	 * Process passed attributes for a shortcode against arrays of base defaults,
@@ -211,26 +226,27 @@ class UAMS_Syndication_Shortcode_Base {
 	 * @return string Modified REST API URL.
 	 */
 	public function build_taxonomy_filters( $atts, $request_url ) {
-		if ( ! empty( $atts['university_category_slug'] ) ) {
-			$terms = $this->sanitized_terms( $atts['university_category_slug'] );
-			$request_url = add_query_arg( array(
-				'filter[uamswp_university_category]' => $terms,
-			), $request_url );
-		}
+		//** Used for now **//
+		// if ( ! empty( $atts['university_category_slug'] ) ) {
+		// 	$terms = $this->sanitized_terms( $atts['university_category_slug'] );
+		// 	$request_url = add_query_arg( array(
+		// 		'filter[uamswp_university_category]' => $terms,
+		// 	), $request_url );
+		// }
 
-		if ( ! empty( $atts['university_organization_slug'] ) ) {
-			$terms = $this->sanitized_terms( $atts['university_organization_slug'] );
-			$request_url = add_query_arg( array(
-				'filter[uamswp_university_org]' => $terms,
-			), $request_url );
-		}
+		// if ( ! empty( $atts['university_organization_slug'] ) ) {
+		// 	$terms = $this->sanitized_terms( $atts['university_organization_slug'] );
+		// 	$request_url = add_query_arg( array(
+		// 		'filter[uamswp_university_org]' => $terms,
+		// 	), $request_url );
+		// }
 
-		if ( ! empty( $atts['university_location_slug'] ) ) {
-			$terms = $this->sanitized_terms( $atts['university_location_slug'] );
-			$request_url = add_query_arg( array(
-				'filter[uamswp_university_location]' => $terms,
-			), $request_url );
-		}
+		// if ( ! empty( $atts['university_location_slug'] ) ) {
+		// 	$terms = $this->sanitized_terms( $atts['university_location_slug'] );
+		// 	$request_url = add_query_arg( array(
+		// 		'filter[uamswp_university_location]' => $terms,
+		// 	), $request_url );
+		// }
 
 		if ( ! empty( $atts['site_category_slug'] ) ) {
 			$terms = $this->sanitized_terms( $atts['site_category_slug'] );
