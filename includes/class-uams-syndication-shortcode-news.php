@@ -44,6 +44,7 @@ class UAMS_Syndication_Shortcode_News extends UAMS_Syndication_Shortcode_Base {
 	 *     @type string $site                     Overrides setting for host. Hostname and path to pull items from.
 	 *     @type string $university_category_slug The slug of a University Category from the University Taxonomy.
 	 *     @type string $site_category_slug       The slug of a Site Category. Defaults to empty.
+	 *     @type string $advanced_cat       	  The ids of a Site Category, including exclusions (-id). Defaults to empty.
 	 *     @type string $tag                      The slug of a tag. Defaults to empty.
 	 *     @type string $style                    Adds additional styles to the wrapper. Defaults to empty.
 	 *     @type string $query                    Allows for a custom WP-API query. Defaults as "posts". Any

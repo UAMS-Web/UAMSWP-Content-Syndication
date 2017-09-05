@@ -27,6 +27,7 @@ class UAMS_Syndication_Shortcode_Base {
 //		'university_organization_slug' => '', //unused for now
 //		'university_location_slug' => '', //unused for now
 		'site_category_slug' => '',
+		'advanced_cat' => '',
 		'tag' => '',
 		'style' => '',
 		'query' => 'posts',
@@ -248,6 +249,14 @@ class UAMS_Syndication_Shortcode_Base {
 		// 	), $request_url );
 		// }
 
+		 if ( ! empty( $atts['advanced_cat'] ) ) {
+		 	//$terms = $this->sanitized_terms( $atts['university_location_slug'] );
+		 	$terms = $this->sanitized_ids( $atts['advanced_cat'] );
+		 	$request_url = add_query_arg( array(
+		 		'filter[cat]' => $terms,
+		 	), $request_url );
+		 }
+
 		if ( ! empty( $atts['site_category_slug'] ) ) {
 			$terms = $this->sanitized_terms( $atts['site_category_slug'] );
 			$request_url = add_query_arg( array(
@@ -277,6 +286,23 @@ class UAMS_Syndication_Shortcode_Base {
 	public function sanitized_terms( $terms ) {
 		$term_array = explode( ',', $terms );
 		$sanitize_term_array = array_map( 'sanitize_key', $term_array );
+		$imploded_terms = implode( ',', $sanitize_term_array );
+
+		return $imploded_terms;
+	}
+
+	/**
+	 * Explode comma-separated ids into an array, sanitize each id, implode into a string.
+	 *
+	 * @since 0.10.0
+	 *
+	 * @param string $terms Comma separated list of ids.
+	 *
+	 * @return string Sanitized comma separated list of ids.
+	 */
+	public function sanitized_ids( $terms ) {
+		$term_array = explode( ',', $terms );
+		$sanitize_term_array = array_map( 'intval', $term_array );
 		$imploded_terms = implode( ',', $sanitize_term_array );
 
 		return $imploded_terms;
