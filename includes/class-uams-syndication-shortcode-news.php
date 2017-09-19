@@ -217,7 +217,7 @@ class UAMS_Syndication_Shortcode_News extends UAMS_Syndication_Shortcode_Base {
 							<a class="content-item-thumbnail" href="<?php echo esc_url( $content->link ); ?>"><?php if ( $content->thumbnail ) : ?><img src="<?php echo esc_url( $content->thumbnail ); ?>" alt="?php echo esc_html( $content->thumbalt ); ?>"><?php endif; ?></a>
 							<span class="content-item-title"><a href="<?php echo esc_url( $content->link ); ?>" class="news-link"><?php echo esc_html( $content->title ); ?></a></span>
 							<span class="content-item-byline">
-								<span class="content-item-byline-date"><small><?php echo esc_html( date( $atts['date_format'], strtotime( $content->date ) ) ); ?></small></span> | 
+								<span class="content-item-byline-date"><small><?php echo esc_html( date( $atts['date_format'], strtotime( $content->date ) ) ); ?> | </small></span> 
 								<span class="content-item-byline-author"><small><?php echo esc_html( $content->author_name ); ?></small></span>
 							</span>
 							<span class="content-item-excerpt"><?php echo wp_kses_post( $content->excerpt ); ?></span>
