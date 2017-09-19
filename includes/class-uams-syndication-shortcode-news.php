@@ -46,6 +46,7 @@ class UAMS_Syndication_Shortcode_News extends UAMS_Syndication_Shortcode_Base {
 	 *     @type string $site_category_slug       The slug of a Site Category. Defaults to empty.
 	 *     @type string $advanced_cat       	  The ids of a Site Category, including exclusions (-id). Defaults to empty.
 	 *     @type string $tag                      The slug of a tag. Defaults to empty.
+	 *     @type string $id                       The id of post. Defaults to empty.
 	 *     @type string $style                    Adds additional styles to the wrapper. Defaults to empty.
 	 *     @type string $query                    Allows for a custom WP-API query. Defaults as "posts". Any
 	 *     @type int    $local_count              The number of local items to merge with the remote results.
@@ -272,16 +273,18 @@ class UAMS_Syndication_Shortcode_News extends UAMS_Syndication_Shortcode_Base {
 						}
 						?>
 						<div class="uamswp-content-syndication-full">
-							<span class="content-item-thumbnail">
-								<?php if ( $content->thumbnail ) : ?><img src="<?php echo esc_url( $content->thumbnail ); ?>"><?php endif; ?>
-							</span>
-							<span class="content-item-title"><a href="<?php echo esc_url( $content->link ); ?>"><?php echo esc_html( $content->title ); ?></a></span>
+							<div class="content-item-thumbnail">
+								<?php if ( $content->image ) : ?><img src="<?php echo esc_url( $content->image ); ?>" alt="<?php echo ($content->imageimagealt); ?>"><?php endif; ?>
+								<?php echo( $content->imagecaption ? '<span class="wp-caption-text">' . $content->imagecaption . '</span>' : '' );?>
+							</div>
+							<span class="content-item-title"><a href="<?php echo esc_url( $content->link ); ?>"><?php echo '<h2>' . esc_html( $content->title ) . '</h2>'; ?></a></span>
 							<span class="content-item-byline">
-								<span class="content-item-byline-date"><?php echo esc_html( date( $atts['date_format'], strtotime( $content->date ) ) ); ?></span>
+								<!-- <span class="content-item-byline-date"><?php echo esc_html( date( $atts['date_format'], strtotime( $content->date ) ) ); ?></span> -->
 								<span class="content-item-byline-author"><?php echo esc_html( $content->author_name ); ?></span>
 							</span>
 							<div class="content-item-content">
 								<?php echo wp_kses_post( $content->content ); ?>
+								<hr size="1" width="75%"/>
 							</div>
 						</div>
 						<?php
@@ -349,8 +352,8 @@ class UAMS_Syndication_Shortcode_News extends UAMS_Syndication_Shortcode_Base {
 				}
 
 				// Add Medium Image
-				if ( isset( $subset_feature->sizes->{'portfolio-one'} ) ) {
-					$subset->image = $subset_feature->sizes->{'portfolio-one'}->source_url;
+				if ( isset( $subset_feature->sizes->{'uams_news'} ) ) {
+					$subset->image = $subset_feature->sizes->{'uams_news'}->source_url;
 					$subset->imagealt = $post->_embedded->{'wp:featuredmedia'}[0]->alt_text;
 					$subset->imagecaption = $post->_embedded->{'wp:featuredmedia'}[0]->caption->rendered;
 				} else {

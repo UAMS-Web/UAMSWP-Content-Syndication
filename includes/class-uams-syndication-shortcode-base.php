@@ -36,6 +36,7 @@ class UAMS_Syndication_Shortcode_Base {
 		'date_format' => 'F j, Y',
 		'offset' => 0,
 		'cache_bust' => '',
+		'id' => '',
 	);
 
 	/**
@@ -268,6 +269,13 @@ class UAMS_Syndication_Shortcode_Base {
 			$terms = $this->sanitized_terms( $atts['tag'] );
 			$request_url = add_query_arg( array(
 				'filter[tag]' => $terms,
+			), $request_url );
+		}
+
+		if ( ! empty( $atts['id'] ) ) {
+			$terms = $this->sanitized_ids( $atts['id'] );
+			$request_url = add_query_arg( array(
+				'filter[p]' => $terms,
 			), $request_url );
 		}
 
