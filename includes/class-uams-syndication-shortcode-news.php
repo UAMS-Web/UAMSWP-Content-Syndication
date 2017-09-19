@@ -241,7 +241,7 @@ class UAMS_Syndication_Shortcode_News extends UAMS_Syndication_Shortcode_Base {
 						}
 						?>
 					    <div class="default-card">
-					    	<div class="card-image"><?php if ( $content->image ) : ?><img src="<?php echo esc_url( $content->image ); ?>" alt="<?php echo esc_html( $content->imagecaption ); ?>"><?php else: ?><img src="http://via.placeholder.com/540x272" alt=" "><?php endif; ?></div>
+					    	<div class="card-image"><?php if ( $content->image ) : ?><img src="<?php echo esc_url( $content->image ); ?>" alt="<?php echo esc_html( $content->imagecaption ); ?>"><?php else: ?><img src="http://via.placeholder.com/540x272?text=Not%20Available" alt=" "><?php endif; ?></div>
 							<div class="card-body">
 					      		<span>
 					      			<h3>
@@ -278,10 +278,10 @@ class UAMS_Syndication_Shortcode_News extends UAMS_Syndication_Shortcode_Base {
 								<?php echo( $content->imagecaption ? '<span class="wp-caption-text">' . $content->imagecaption . '</span>' : '' );?>
 							</div>
 							<span class="content-item-title"><a href="<?php echo esc_url( $content->link ); ?>"><?php echo '<h2>' . esc_html( $content->title ) . '</h2>'; ?></a></span>
-							<span class="content-item-byline">
-								<!-- <span class="content-item-byline-date"><?php echo esc_html( date( $atts['date_format'], strtotime( $content->date ) ) ); ?></span> -->
-								<span class="content-item-byline-author"><?php echo esc_html( $content->author_name ); ?></span>
-							</span>
+							<div class="content-item-byline">
+								<!-- <?php if ( $content->date) : ?><span class="content-item-byline-date"><?php echo esc_html( date( $atts['date_format'], strtotime( $content->date ) ) ); ?></span> | <?php endif; ?>-->
+								<?php if ( $content->author_name) : ?><span class="content-item-byline-author"><?php echo esc_html( $content->author_name ); ?></span><?php endif; ?>
+							</div>
 							<div class="content-item-content">
 								<?php echo wp_kses_post( $content->content ); ?>
 								<hr size="1" width="75%"/>

@@ -5,25 +5,14 @@
 	flex-wrap: wrap;
 	justify-content: space-around;
 	align-items: stretch;
-	/* Original Table Layout */
-	/* overflow: hidden; */
-	/* display: table; */
-	/* table-layout: fixed; */
-	/* width: 100%; */
-	/* border-spacing: 20px; */
-	/* margin: 0 0 40px; */
 }
 .uamswp-content-syndication-cards .default-card {
 	/* Flex Layout */
 	display: block;
 	flex: 1;
 	min-width: 240px;
-	/* border: 5px solid white; */
 	margin-right: 10px;
 	margin-top: 10px;
-	/* Original Table Layout */
-	/* display: table-cell; */
-	/* border-spacing: 20px; */
 	vertical-align: top;  
 	padding: 0 40px 20px; 
 	background-color: #eee;
@@ -125,4 +114,12 @@
 .uamswp-content-syndication-excerpts .content-item-byline .content-item-byline-date,
 .uamswp-content-syndication-excerpts .content-item-byline .content-item-byline-author {
 	display: inline-block;
+}
+
+/* Lazy Loader fix -> uamshealth */
+.uamswp-content-syndication-full .wp-caption img:first-child {
+	display: none;
+}
+.uamswp-content-syndication-full .wp-caption img:only-child {
+    display: block;
 }
