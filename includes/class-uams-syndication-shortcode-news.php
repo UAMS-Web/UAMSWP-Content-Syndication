@@ -10,14 +10,25 @@ class UAMS_Syndication_Shortcode_News extends UAMS_Syndication_Shortcode_Base {
 	public function __construct() {
 		parent::construct();
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_syndication_stylesheet' ) );
+		add_action( 'admin_init', array( $this, 'enqueue_syndication_stylesheet_admin' ) );
 	}
 
 	/**
 	 * Enqueue styles specific to the network admin dashboard.
 	 */
 	public function enqueue_syndication_stylesheet() {
+		$post = get_post();
+	 	if ( isset( $post->post_content ) && has_shortcode( $post->post_content, 'uamswp_news' ) ) {
 			wp_enqueue_style( 'uamswp-syndication-news-style', plugins_url( '/css/uamswp-syndication-news.css', __DIR__ ), array(), '' );
+		}
 	}
+
+	/**
+	 * Enqueue styles specific to the network admin dashboard.
+	 */
+	// public function enqueue_syndication_stylesheet_admin() {
+	// 	add_editor_style( 'uamswp-syndication-news-style-admin', plugins_url( '/css/uamswp-syndication-news.css', __DIR__ ), array(), '' );
+	// }
 
 	/**
 	 * Add the shortcode provided.
@@ -213,14 +224,24 @@ class UAMS_Syndication_Shortcode_News extends UAMS_Syndication_Shortcode_Base {
 							continue;
 						}
 						?>
-						<li class="uamswp-content-syndication-item">
-							<a class="content-item-thumbnail" href="<?php echo esc_url( $content->link ); ?>"><?php if ( $content->thumbnail ) : ?><img src="<?php echo esc_url( $content->thumbnail ); ?>" alt="?php echo esc_html( $content->thumbalt ); ?>"><?php endif; ?></a>
-							<span class="content-item-title"><a href="<?php echo esc_url( $content->link ); ?>" class="news-link"><?php echo esc_html( $content->title ); ?></a></span>
+						<li class="uamswp-content-syndication-item" itemscope itemtype="http://schema.org/NewsArticle">
+							<meta itemscope itemprop="mainEntityOfPage"  itemType="https://schema.org/WebPage" itemid="<?php echo esc_url( $content->link ); ?>"/>
+							<a class="content-item-thumbnail" href="<?php echo esc_url( $content->link ); ?>" itemprop="image" itemscope itemtype="https://schema.org/ImageObject"><?php if ( $content->thumbnail ) : ?><img src="<?php echo esc_url( $content->thumbnail ); ?>" alt="?php echo esc_html( $content->thumbalt ); ?>" itemprop="url"><?php endif; ?></a>
+							<span class="content-item-title" itemprop="headline"><a href="<?php echo esc_url( $content->link ); ?>" class="news-link" itemprop="url"><?php echo esc_html( $content->title ); ?></a></span>
 							<span class="content-item-byline">
-								<span class="content-item-byline-date"><small><?php echo esc_html( date( $atts['date_format'], strtotime( $content->date ) ) ); ?> | </small></span> 
-								<span class="content-item-byline-author"><small><?php echo esc_html( $content->author_name ); ?></small></span>
+								<span class="content-item-byline-date" itemprop="datePublished" content="<?php echo esc_html( date( 'c', strtotime( $content->date ) ) ); ?>"><small><?php echo esc_html( date( $atts['date_format'], strtotime( $content->date ) ) ); ?> | </small></span> 
+								<meta itemprop="dateModified" content="<?php echo esc_html( date( 'c', strtotime( $content->modified ) ) ); ?>"/>
+								<span class="content-item-byline-author" itemprop="author" itemscope itemtype="http://schema.org/Person"><small itemprop="name"><?php echo esc_html( $content->author_name ); ?></small></span>
 							</span>
-							<span class="content-item-excerpt"><?php echo wp_kses_post( $content->excerpt ); ?></span>
+							<span class="content-item-excerpt" itemprop="articleBody"><?php echo wp_kses_post( $content->excerpt ); ?></span>
+							<span itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+								<meta itemprop="name" content="University of Arkansas for Medical Sciences"/>
+								<span itemprop="logo" itemscope itemtype="https://schema.org/ImageObject">
+									<meta itemprop="url" content="http://web.uams.edu/wp-content/uploads/sites/51/2017/09/UAMS_Academic_40-1.png"/>
+								    <meta itemprop="width" content="297"/>
+								    <meta itemprop="height" content="40"/>
+								</span>
+							</span>
 						</li>
 						<?php
 					}
@@ -240,19 +261,32 @@ class UAMS_Syndication_Shortcode_News extends UAMS_Syndication_Shortcode_Base {
 							continue;
 						}
 						?>
-					    <div class="default-card">
-					    	<div class="card-image"><?php if ( $content->image ) : ?><img src="<?php echo esc_url( $content->image ); ?>" alt="<?php echo esc_html( $content->imagecaption ); ?>"><?php else: ?><img src="http://via.placeholder.com/540x272?text=Not%20Available" alt=" "><?php endif; ?></div>
+					    <div class="default-card" itemscope itemtype="http://schema.org/NewsArticle">
+					    	<meta itemscope itemprop="mainEntityOfPage"  itemType="https://schema.org/WebPage" itemid="<?php echo esc_url( $content->link ); ?>"/>
+					    	<div class="card-image" itemprop="image" itemscope itemtype="https://schema.org/ImageObject"><?php if ( $content->image ) : ?><img src="<?php echo esc_url( $content->image ); ?>" alt="<?php echo esc_html( $content->imagecaption ); ?>" itemprop="url"><?php else: ?><img src="http://via.placeholder.com/560x350?text=Not%20Available" alt="" itemprop="url"><?php endif; ?></div>
 							<div class="card-body">
 					      		<span>
-					      			<h3>
+					      			<h3 itemprop="headline">
 					                	<a href="<?php echo esc_url( $content->link ); ?>" class="pic-title"><?php echo esc_html( $content->title ); ?></a>
 					              	</h3>
+					              	<span itemprop="articleBody">
 					      			<?php echo wp_kses_post( $content->excerpt ); ?>
-					              	<a href="<?php echo esc_url( $content->link ); ?>" class="pic-text-more uams-btn btn-sm btn-red">Read more</a>
+					      			</span>
+					              	<a href="<?php echo esc_url( $content->link ); ?>" class="pic-text-more uams-btn btn-sm btn-red" itemprop="url">Read more</a>
+					              	<span class="content-item-byline-author" itemprop="author" itemscope itemtype="http://schema.org/Person"><meta itemprop="name" content="<?php echo esc_html( $content->author_name ); ?>"/></span>
+					              	<meta itemprop="datePublished" content="<?php echo esc_html( date( 'c', strtotime( $content->date ) ) ); ?>"/>
+					              	<meta itemprop="dateModified" content="<?php echo esc_html( date( 'c', strtotime( $content->modified ) ) ); ?>"/>
 					            </span>
 
 							</div>
-
+							<span itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+								<meta itemprop="name" content="University of Arkansas for Medical Sciences"/>
+								<span itemprop="logo" itemscope itemtype="https://schema.org/ImageObject">
+									<meta itemprop="url" content="http://web.uams.edu/wp-content/uploads/sites/51/2017/09/UAMS_Academic_40-1.png"/>
+								    <meta itemprop="width" content="297"/>
+								    <meta itemprop="height" content="40"/>
+								</span>
+							</span>
 					    </div>
 						<?php
 					}
@@ -272,20 +306,31 @@ class UAMS_Syndication_Shortcode_News extends UAMS_Syndication_Shortcode_Base {
 							continue;
 						}
 						?>
-						<div class="uamswp-content-syndication-full">
-							<div class="content-item-thumbnail">
-								<?php if ( $content->image ) : ?><img src="<?php echo esc_url( $content->image ); ?>" alt="<?php echo ($content->imageimagealt); ?>"><?php endif; ?>
+						<div class="uamswp-content-syndication-full" itemscope itemtype="http://schema.org/NewsArticle">
+							<meta itemscope itemprop="mainEntityOfPage"  itemType="https://schema.org/WebPage" itemid="<?php echo esc_url( $content->link ); ?>"/>
+							<div class="content-item-thumbnail" itemprop="image" itemscope itemtype="https://schema.org/ImageObject">
+								<?php if ( $content->image ) : ?><img src="<?php echo esc_url( $content->image ); ?>" alt="<?php echo ($content->imageimagealt); ?>"><?php else: ?><meta itemprop="url" content="http://www.uams.edu/_images/blank.gif"/><?php endif; ?>
 								<?php echo( $content->imagecaption ? '<span class="wp-caption-text">' . $content->imagecaption . '</span>' : '' );?>
 							</div>
-							<span class="content-item-title"><a href="<?php echo esc_url( $content->link ); ?>"><?php echo '<h2>' . esc_html( $content->title ) . '</h2>'; ?></a></span>
+							<span class="content-item-title"><a href="<?php echo esc_url( $content->link ); ?>" itemprop="url"><?php echo '<h2 itemprop="headline">' . esc_html( $content->title ) . '</h2>'; ?></a></span>
 							<div class="content-item-byline">
 								<!-- <?php if ( $content->date) : ?><span class="content-item-byline-date"><?php echo esc_html( date( $atts['date_format'], strtotime( $content->date ) ) ); ?></span> | <?php endif; ?>-->
-								<?php if ( $content->author_name) : ?><span class="content-item-byline-author"><?php echo esc_html( $content->author_name ); ?></span><?php endif; ?>
+								<?php if ( $content->author_name) : ?><span class="content-item-byline-author" itemprop="author" itemscope itemtype="http://schema.org/Person"><span itemprop="name"><?php echo esc_html( $content->author_name ); ?></span></span><?php endif; ?>
+								<meta itemprop="datePublished" content="<?php echo esc_html( date( 'c', strtotime( $content->date ) ) ); ?>"/>
+					            <meta itemprop="dateModified" content="<?php echo esc_html( date( 'c', strtotime( $content->modified ) ) ); ?>"/>
 							</div>
-							<div class="content-item-content">
+							<div class="content-item-content" itemprop="articleBody">
 								<?php echo wp_kses_post( $content->content ); ?>
 								<hr size="1" width="75%"/>
 							</div>
+							<span itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+								<meta itemprop="name" content="University of Arkansas for Medical Sciences"/>
+								<span itemprop="logo" itemscope itemtype="https://schema.org/ImageObject">
+									<meta itemprop="url" content="http://web.uams.edu/wp-content/uploads/sites/51/2017/09/UAMS_Academic_40-1.png"/>
+								    <meta itemprop="width" content="297"/>
+								    <meta itemprop="height" content="40"/>
+								</span>
+							</span>
 						</div>
 						<?php
 					}
@@ -421,6 +466,7 @@ class UAMS_Syndication_Shortcode_News extends UAMS_Syndication_Shortcode_Base {
 			$subset->ID = $post['id'];
 			$subset->date = $post['date']; // In time zone of requested site
 			$subset->link = $post['link'];
+			$subset->modified = $post['modified']; // Added for schema
 
 			// These fields all provide a rendered version when the response is generated.
 			$subset->title   = $post['title']['rendered'];
