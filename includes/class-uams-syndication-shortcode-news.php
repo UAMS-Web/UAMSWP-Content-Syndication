@@ -10,7 +10,11 @@ class UAMS_Syndication_Shortcode_News extends UAMS_Syndication_Shortcode_Base {
 	public function __construct() {
 		parent::construct();
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_syndication_stylesheet' ) );
-		add_action( 'admin_init', array( $this, 'enqueue_syndication_stylesheet_admin' ) );
+		if ( class_exists('UAMS_Shortcakes') ) {
+			add_action( 'admin_init', array( $this, 'build_shortcake' ) );
+			add_editor_style( plugins_url( '/css/uams-syndication-admin.css', __DIR__ ) );
+		}
+		//add_action( 'admin_init', array( $this, 'enqueue_syndication_stylesheet_admin' ) );
 	}
 
 	/**
@@ -29,6 +33,89 @@ class UAMS_Syndication_Shortcode_News extends UAMS_Syndication_Shortcode_Base {
 	// public function enqueue_syndication_stylesheet_admin() {
 	// 	add_editor_style( 'uamswp-syndication-news-style-admin', plugins_url( '/css/uamswp-syndication-news.css', __DIR__ ), array(), '' );
 	// }
+	public function build_shortcake() {
+		shortcode_ui_register_for_shortcode(
+	 
+			/** Your shortcode handle */
+			'uamswp_news',
+			 
+			/** Your Shortcode label and icon */
+			array(
+			 
+			/** Label for your shortcode user interface. This part is required. */
+			'label' => esc_html__('News Syndication', 'uamswp_news'),
+			 
+			/** Icon or an image attachment for shortcode. Optional. src or dashicons-$icon.  */
+			'listItemImage' => 'dashicons-rss',
+			 
+			/** Shortcode Attributes */
+			'attrs'          => array(
+			 
+				/** Output format */
+				array(
+				'label'     => esc_html__('Format', 'uamswp_news'),
+				'attr'      => 'output',
+				'type'      => 'select',
+				    'options' => array(
+				        'headlines'      => 'Headline',
+				        'excerpts'    => 'Excerpt',
+				        'cards'     => 'Card',
+				        'full'     => 'Full',
+				    ),
+				'description'  => 'Preferred output format',
+				),
+
+				array(
+				 
+				/** This label will appear in user interface */
+				'label'        => esc_html__('Category', 'uamswp_news'),
+				'attr'         => 'site_category_slug',
+				'type'         => 'text',
+				'description'  => 'Please enter the filter / category',
+				),
+
+				/** Count - Number of articles */
+				array(
+				'label'        => esc_html__('Count', 'uamswp_news'),
+				'attr'         => 'count',
+				'type'         => 'number',
+				'description'  => 'Number of news articles to display',
+				'meta'   => array(
+						'placeholder' 	=> esc_html__( '1' ),
+						'min'			=> '1',
+						'step'			=> '1',
+					),
+				),
+
+				/** Offset - Number of articles to skip */
+				array(
+				'label'        => esc_html__('Offset', 'uamswp_news'),
+				'attr'         => 'offset',
+				'type'         => 'number',
+				'description'  => 'Number of news articles to skip',
+				'meta'   => array(
+						'placeholder' 	=> esc_html__( '0' ),
+						'min'			=> '0',
+						'step'			=> '1',
+					),
+				),
+
+				/** ID - ID of specific of articles */
+				array(
+				'label'        => esc_html__('Post ID', 'uamswp_news'),
+				'attr'         => 'id',
+				'type'         => 'number',
+				'description'  => 'Specific ID of article',
+				),
+
+			 
+			),
+			 
+			/** You can select which post types will show shortcode UI */
+			'post_type'     => array( 'post', 'page' ), 
+			)
+		);
+	}
 
 	/**
 	 * Add the shortcode provided.
@@ -229,7 +316,7 @@ class UAMS_Syndication_Shortcode_News extends UAMS_Syndication_Shortcode_Base {
 							<a class="content-item-thumbnail" href="<?php echo esc_url( $content->link ); ?>" itemprop="image" itemscope itemtype="https://schema.org/ImageObject"><?php if ( $content->thumbnail ) : ?><img src="<?php echo esc_url( $content->thumbnail ); ?>" alt="?php echo esc_html( $content->thumbalt ); ?>" itemprop="url"><?php endif; ?></a>
 							<span class="content-item-title" itemprop="headline"><a href="<?php echo esc_url( $content->link ); ?>" class="news-link" itemprop="url"><?php echo esc_html( $content->title ); ?></a></span>
 							<span class="content-item-byline">
-								<span class="content-item-byline-date" itemprop="datePublished" content="<?php echo esc_html( date( 'c', strtotime( $content->date ) ) ); ?>"><small><?php echo esc_html( date( $atts['date_format'], strtotime( $content->date ) ) ); ?> | </small></span> 
+								<span class="content-item-byline-date" itemprop="datePublished" content="<?php echo esc_html( date( 'c', strtotime( $content->date ) ) ); ?>"><small><?php echo esc_html( date( $atts['date_format'], strtotime( $content->date ) ) ); ?> | </small></span>
 								<meta itemprop="dateModified" content="<?php echo esc_html( date( 'c', strtotime( $content->modified ) ) ); ?>"/>
 								<span class="content-item-byline-author" itemprop="author" itemscope itemtype="http://schema.org/Person"><small itemprop="name"><?php echo esc_html( $content->author_name ); ?></small></span>
 							</span>
