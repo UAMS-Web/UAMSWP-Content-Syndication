@@ -13,6 +13,10 @@ class UAMS_Syndication_Shortcode_News extends UAMS_Syndication_Shortcode_Base {
 		if ( class_exists('UAMS_Shortcakes') ) {
 			add_action( 'admin_init', array( $this, 'build_shortcake' ) );
 			add_editor_style( plugins_url( '/css/uams-syndication-admin.css', __DIR__ ) );
+			function UAMS_Syndication_add_editor_js() {
+			    wp_enqueue_script( 'uams_syndications_editor_js', plugins_url( '/js/uams-syndication-shortcake.js', __DIR__ ) );
+			}
+			add_action( 'enqueue_shortcode_ui', 'UAMS_Syndication_add_editor_js' );
 		}
 		//add_action( 'admin_init', array( $this, 'enqueue_syndication_stylesheet_admin' ) );
 	}
@@ -24,6 +28,7 @@ class UAMS_Syndication_Shortcode_News extends UAMS_Syndication_Shortcode_Base {
 		$post = get_post();
 	 	if ( isset( $post->post_content ) && has_shortcode( $post->post_content, 'uamswp_news' ) ) {
 			wp_enqueue_style( 'uamswp-syndication-news-style', plugins_url( '/css/uamswp-syndication-news.css', __DIR__ ), array(), '' );
+			//wp_enqueue_script( 'uams_syndication_editor_js', plugins_url( '/js/uams-syndication-shortcake.js', __DIR__ ));
 		}
 	}
 
@@ -55,7 +60,7 @@ class UAMS_Syndication_Shortcode_News extends UAMS_Syndication_Shortcode_Base {
 				array(
 				'label'     => esc_html__('Format', 'uamswp_news'),
 				'attr'      => 'output',
-				'type'      => 'select',
+				'type'      => 'radio',
 				    'options' => array(
 				        'headlines'      => 'Headline',
 				        'excerpts'    => 'Excerpt',
@@ -313,7 +318,7 @@ class UAMS_Syndication_Shortcode_News extends UAMS_Syndication_Shortcode_Base {
 						?>
 						<li class="uamswp-content-syndication-item" itemscope itemtype="http://schema.org/NewsArticle">
 							<meta itemscope itemprop="mainEntityOfPage"  itemType="https://schema.org/WebPage" itemid="<?php echo esc_url( $content->link ); ?>"/>
-							<a class="content-item-thumbnail" href="<?php echo esc_url( $content->link ); ?>" itemprop="image" itemscope itemtype="https://schema.org/ImageObject"><?php if ( $content->thumbnail ) : ?><img src="<?php echo esc_url( $content->thumbnail ); ?>" alt="?php echo esc_html( $content->thumbalt ); ?>" itemprop="url"><?php endif; ?></a>
+							<a class="content-item-thumbnail" href="<?php echo esc_url( $content->link ); ?>" itemprop="image" itemscope itemtype="https://schema.org/ImageObject"><?php if ( $content->thumbnail ) : ?><img src="<?php echo esc_url( $content->thumbnail ); ?>" alt="<?php echo esc_html( $content->thumbalt ); ?>" itemprop="url"><?php endif; ?></a>
 							<span class="content-item-title" itemprop="headline"><a href="<?php echo esc_url( $content->link ); ?>" class="news-link" itemprop="url"><?php echo esc_html( $content->title ); ?></a></span>
 							<span class="content-item-byline">
 								<span class="content-item-byline-date" itemprop="datePublished" content="<?php echo esc_html( date( 'c', strtotime( $content->date ) ) ); ?>"><small><?php echo esc_html( date( $atts['date_format'], strtotime( $content->date ) ) ); ?> | </small></span>

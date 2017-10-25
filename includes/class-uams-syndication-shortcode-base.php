@@ -32,7 +32,7 @@ class UAMS_Syndication_Shortcode_Base {
 		'style' => '',
 		'query' => 'posts',
 		'local_count' => 0,
-		'count' => false,
+		'count' => 1,
 		'date_format' => 'F j, Y',
 		'offset' => 0,
 		'cache_bust' => '',
