@@ -9,7 +9,7 @@
 .uamswp-content-syndication-cards .default-card {
 	/* Flex Layout */
 	display: block;
-	flex: 1;
+	flex: 1 0 240px; /* Workaround for Safari Bug */
 	min-width: 240px;
 	margin-right: 10px;
 	margin-top: 10px;

@@ -28,7 +28,6 @@ class UAMS_Syndication_Shortcode_News extends UAMS_Syndication_Shortcode_Base {
 		$post = get_post();
 	 	if ( isset( $post->post_content ) && has_shortcode( $post->post_content, 'uamswp_news' ) ) {
 			wp_enqueue_style( 'uamswp-syndication-news-style', plugins_url( '/css/uamswp-syndication-news.css', __DIR__ ), array(), '' );
-			//wp_enqueue_script( 'uams_syndication_editor_js', plugins_url( '/js/uams-syndication-shortcake.js', __DIR__ ));
 		}
 	}
 
