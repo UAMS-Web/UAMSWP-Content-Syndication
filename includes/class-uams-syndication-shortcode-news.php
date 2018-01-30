@@ -400,7 +400,7 @@ class UAMS_Syndication_Shortcode_News extends UAMS_Syndication_Shortcode_Base {
 						<div class="uamswp-content-syndication-full" itemscope itemtype="http://schema.org/NewsArticle">
 							<meta itemscope itemprop="mainEntityOfPage"  itemType="https://schema.org/WebPage" itemid="<?php echo esc_url( $content->link ); ?>"/>
 							<div class="content-item-thumbnail" itemprop="image" itemscope itemtype="https://schema.org/ImageObject">
-								<?php if ( $content->image ) : ?><img src="<?php echo esc_url( $content->image ); ?>" alt="<?php echo ($content->imageimagealt); ?>"><?php else: ?><meta itemprop="url" content="http://www.uams.edu/_images/blank.gif"/><?php endif; ?>
+								<?php if ( $content->image ) : ?><img src="<?php echo esc_url( $content->image ); ?>" alt="<?php echo ($content->imagealt); ?>"><?php else: ?><meta itemprop="url" content="http://www.uams.edu/_images/blank.gif"/><?php endif; ?>
 								<?php echo( $content->imagecaption ? '<span class="wp-caption-text">' . $content->imagecaption . '</span>' : '' );?>
 							</div>
 							<span class="content-item-title"><a href="<?php echo esc_url( $content->link ); ?>" itemprop="url"><?php echo '<h2 itemprop="headline">' . esc_html( $content->title ) . '</h2>'; ?></a></span>
