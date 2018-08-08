@@ -2,9 +2,9 @@
 /**
  * A base class for UAMS syndicate shortcodes.
  *
- * Class UAMS_Syndication_Shortcode_Base
+ * Class UAMS_Syndicate_Shortcode_Base
  */
-class UAMS_Syndication_Shortcode_Base {
+class UAMS_Syndicate_Shortcode_Base {
 	/**
 	 * Default path used to consume the REST API from an individual site.
 	 *
@@ -20,19 +20,16 @@ class UAMS_Syndication_Shortcode_Base {
 	public $defaults_atts = array(
 		'object' => 'json_data',
 		'output' => 'json',
-		'host' => 'uamshealth.com', // eventually 'news.uams.edu'
+		'host' => 'uamshealth.com', // soon 'news.uams.edu'
 		'scheme' => 'https',
 		'site' => '',
-//		'university_category_slug' => '', //unused for now
-//		'university_organization_slug' => '', //unused for now
-//		'university_location_slug' => '', //unused for now
 		'site_category_slug' => '',
 		'advanced_cat' => '',
 		'tag' => '',
 		'style' => '',
 		'query' => 'posts',
 		'local_count' => 0,
-		'count' => 1,
+		'count' => false,
 		'date_format' => 'F j, Y',
 		'offset' => 0,
 		'cache_bust' => '',
@@ -106,9 +103,21 @@ class UAMS_Syndication_Shortcode_Base {
 	 * @return array Fully populated list of attributes expected by the shortcode.
 	 */
 	public function process_attributes( $atts ) {
-		$defaults = shortcode_atts( $this->defaults_atts, $this->local_default_atts );
-		$defaults = $defaults + $this->local_extended_atts;
-
+		$defaults = apply_filters( 'uamswp_content_syndicate_default_atts', $this->defaults_atts );
+		
+		$defaults = shortcode_atts( $defaults, $this->local_default_atts );
+		$defaults = array_merge( $defaults, $this->local_extended_atts );
+		$local_defaults = array();
+		// Allow for different attribute values to be passed when results from the
+		// local site are merged into results from a remote site.
+		foreach ( $defaults as $attribute => $value ) {
+			// The core default attributes should stay the same
+			if ( array_key_exists( $attribute, $this->defaults_atts ) ) {
+				continue;
+			}
+			$local_defaults[ 'local_' . $attribute ] = $value;
+		}
+		$defaults = array_merge( $defaults, $local_defaults );
 		return shortcode_atts( $defaults, $atts, $this->shortcode_name );
 	}
 
@@ -156,18 +165,14 @@ class UAMS_Syndication_Shortcode_Base {
 	public function build_initial_request( $site_url, $atts ) {
 		$url_scheme = 'http';
 		$local_site_id = false;
-
 		// Account for a previous version that allowed "local" as a manual scheme.
 		if ( 'local' === $atts['scheme'] ) {
 			$atts['scheme'] = 'http';
 		}
-
 		$home_url_data = wp_parse_url( trailingslashit( get_home_url() ) );
-
 		if ( $home_url_data['host'] === $site_url['host'] && $home_url_data['path'] === $site_url['path'] ) {
 			$local_site_id = 1;
 			$url_scheme = $home_url_data['scheme'];
-
 			// Local is assigned as a scheme only if the requesting site is the requested site.
 			$atts['scheme'] = 'local';
 		} elseif ( is_multisite() ) {
@@ -175,7 +180,6 @@ class UAMS_Syndication_Shortcode_Base {
 				'domain' => $site_url['host'],
 				'path' => $site_url['path'],
 			), false );
-
 			if ( $local_site ) {
 				$local_site_id = $local_site->blog_id;
 				$local_home_url = get_home_url( $local_site_id );
@@ -183,15 +187,12 @@ class UAMS_Syndication_Shortcode_Base {
 				$atts['scheme'] = $url_scheme;
 			}
 		}
-
 		$request_url = esc_url( $url_scheme . '://' . $site_url['host'] . $site_url['path'] . $this->default_path ) . $atts['query'];
-
 		$request = array(
 			'url' => $request_url,
 			'scheme' => $atts['scheme'],
 			'site_id' => $local_site_id,
 		);
-
 		return $request;
 	}
 
@@ -209,12 +210,10 @@ class UAMS_Syndication_Shortcode_Base {
 		} else {
 			$site_url = trailingslashit( esc_url( $atts['host'] ) );
 		}
-
 		$site_url = wp_parse_url( $site_url );
 		if ( empty( $site_url['host'] ) ) {
 			return false;
 		}
-
 		return $site_url;
 	}
 
@@ -228,27 +227,8 @@ class UAMS_Syndication_Shortcode_Base {
 	 * @return string Modified REST API URL.
 	 */
 	public function build_taxonomy_filters( $atts, $request_url ) {
-		//** Used for now **//
-		// if ( ! empty( $atts['university_category_slug'] ) ) {
-		// 	$terms = $this->sanitized_terms( $atts['university_category_slug'] );
-		// 	$request_url = add_query_arg( array(
-		// 		'filter[uamswp_university_category]' => $terms,
-		// 	), $request_url );
-		// }
 
-		// if ( ! empty( $atts['university_organization_slug'] ) ) {
-		// 	$terms = $this->sanitized_terms( $atts['university_organization_slug'] );
-		// 	$request_url = add_query_arg( array(
-		// 		'filter[uamswp_university_org]' => $terms,
-		// 	), $request_url );
-		// }
-
-		// if ( ! empty( $atts['university_location_slug'] ) ) {
-		// 	$terms = $this->sanitized_terms( $atts['university_location_slug'] );
-		// 	$request_url = add_query_arg( array(
-		// 		'filter[uamswp_university_location]' => $terms,
-		// 	), $request_url );
-		// }
+        $request_url = apply_filters( 'uamswp_content_syndicate_taxonomy_filters', $request_url, $atts, $request_url );
 
 		 if ( ! empty( $atts['advanced_cat'] ) ) {
 		 	//$terms = $this->sanitized_terms( $atts['university_location_slug'] );
@@ -277,7 +257,7 @@ class UAMS_Syndication_Shortcode_Base {
 			$request_url = add_query_arg( array(
 				'filter[p]' => $terms,
 			), $request_url );
-		}
+        }     
 
 		return $request_url;
 	}
