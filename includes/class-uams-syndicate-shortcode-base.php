@@ -20,7 +20,7 @@ class UAMS_Syndicate_Shortcode_Base {
 	public $defaults_atts = array(
 		'object' => 'json_data',
 		'output' => 'json',
-		'host' => 'uamshealth.com', // soon 'news.uams.edu'
+		'host' => 'news.uams.edu', // originally 'uamshealth.com'
 		'scheme' => 'https',
 		'site' => '',
 		'site_category_slug' => '',

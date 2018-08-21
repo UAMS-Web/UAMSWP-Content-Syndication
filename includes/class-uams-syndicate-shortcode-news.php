@@ -306,7 +306,7 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base {
 		if ( 'json' === $atts['output'] ) {
             echo '<!-- UAMSWP Output JSON -->';
             // print_r ($new_data);
-            echo '<script>var ' . esc_js( $atts['object'] ) . ' = ' . wp_json_encode( $new_data ) . $request_url .';</script>';
+            echo '<script>var ' . esc_js( $atts['object'] ) . ' = ' . wp_json_encode( $new_data ) .';</script>';
 		} elseif ( 'headlines' === $atts['output'] ) {
 			?>
             <!-- UAMSWP Output Headlines -->
