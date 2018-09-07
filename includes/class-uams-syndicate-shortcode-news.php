@@ -12,10 +12,9 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base {
 		if ( class_exists('UAMS_Shortcakes') ) {
 			add_action( 'admin_init', array( $this, 'build_shortcake' ) );
 			add_editor_style( plugins_url( '/css/uams-syndication-admin.css', __DIR__ ) );
-			function UAMS_Syndication_add_editor_js() {
-			    wp_enqueue_script( 'uams_syndications_editor_js', plugins_url( '/js/uams-syndication-shortcake.js', __DIR__ ) );
-			}
-			add_action( 'enqueue_shortcode_ui', 'UAMS_Syndication_add_editor_js' );
+			add_action( 'enqueue_shortcode_ui', function() {
+				wp_enqueue_script( 'uams_syndications_editor_js', plugins_url( '/js/uams-syndication-shortcake.js', __DIR__ ) );
+			});
 		}
 		//add_action( 'admin_init', array( $this, 'enqueue_syndication_stylesheet_admin' ) );
 	}
@@ -112,7 +111,7 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base {
 				/** ID - ID of specific of articles */
 				array(
 				'label'        => esc_html__('Post ID', 'uamswp_news'),
-				'attr'         => 'id',
+				'attr'         => 'postid',
 				'type'         => 'number',
 				'description'  => 'Specific ID of article',
 				),

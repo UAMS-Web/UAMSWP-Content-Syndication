@@ -11,16 +11,30 @@ function updateNewsOptionsListener(changed, collection, shortcode) {
 
     var updatedVal = changed.value,
         category = attributeByName('site_category_slug'),
-        count = attributeByName('count');
-        offset = attributeByName('offset');
-        postid = attributeByName('id');
+        count = attributeByName('count'),
+        offset = attributeByName('offset'),
+        postid = attributeByName('postid');
 
-    if (updatedVal == 'full') {
+    if( typeof updatedVal === 'undefined' ) {
+        return;
+    }
+
+    if ('full' === updatedVal) {
         postid.$el.show();
         offset.$el.hide();
         category.$el.hide();
         count.$el.hide();
-    } else if (updatedVal != 'full')  {
+    } else if ('headlines' === updatedVal)  {
+        postid.$el.hide();
+        offset.$el.show();
+        category.$el.show();
+        count.$el.show();
+    } else if ('excerpts' === updatedVal)  {
+        postid.$el.hide();
+        offset.$el.show();
+        category.$el.show();
+        count.$el.show();
+    } else if ('cards' !== updatedVal)  {
         postid.$el.hide();
         offset.$el.show();
         category.$el.show();
@@ -32,4 +46,4 @@ function updateNewsOptionsListener(changed, collection, shortcode) {
         count.$el.hide();
     }
 }
-wp.shortcake.hooks.addAction('uamswp_news.output', updateNewsOptionsListener);
+wp.shortcake.hooks.addAction('uamswp_news.output', updateNewsOptionsListener );
