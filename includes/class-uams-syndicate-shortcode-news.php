@@ -343,7 +343,7 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base {
 							<span class="content-item-title" itemprop="headline"><a href="<?php echo esc_url( $content->link ); ?>" class="news-link" itemprop="url"><?php echo esc_html( $content->title ); ?></a></span>
 							<span class="content-item-byline">
 								<span class="content-item-byline-date" itemprop="datePublished" content="<?php echo esc_html( date( 'c', strtotime( $content->date ) ) ); ?>"><small><?php echo esc_html( date( $atts['date_format'], strtotime( $content->date ) ) ); ?> | </small></span>
-								<meta itemprop="dateModified" content="<?php echo esc_html( date( 'c', strtotime( $content->modified ) ) ); ?>"/>
+								<meta itemprop="dateModified" content="<?php echo esc_html( date( 'c', strtotime( $content->date ) ) ); ?>"/>
 								<span class="content-item-byline-author" itemprop="author" itemscope itemtype="http://schema.org/Person"><small itemprop="name"><?php echo esc_html( $content->author_name ); ?></small></span>
 							</span>
 							<span class="content-item-excerpt" itemprop="articleBody"><?php echo wp_kses_post( $content->excerpt ); ?></span>
@@ -435,7 +435,13 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base {
 					            <meta itemprop="dateModified" content="<?php echo esc_html( date( 'c', strtotime( $content->modified ) ) ); ?>"/>
 							</div>
 							<div class="content-item-content" itemprop="articleBody">
-								<?php echo wp_kses_post( $content->content ); ?>
+								<?php 
+									if ( $content->fullcontent ) {
+										echo wp_kses_post( $content->fullcontent );
+									} else {
+										echo wp_kses_post( $content->content ); 
+									}
+								?>
 								<hr size="1" width="75%"/>
 							</div>
 							<span itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
@@ -494,6 +500,10 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base {
 				$subset->title   = $post->title->rendered;
 				$subset->content = $post->content->rendered;
 				$subset->excerpt = $post->excerpt->rendered;
+
+				if ('full' === $atts['output'] ) {
+					$subset->fullcontent = $post->fullcontent;
+				}
 
 				// If a featured image is assigned (int), the full data will be in the `_embedded` property.
 				if ( ! empty( $post->featured_media ) && isset( $post->_embedded->{'wp:featuredmedia'} ) && 0 < count( $post->_embedded->{'wp:featuredmedia'} ) ) {
@@ -598,6 +608,9 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base {
 				$subset->title   = $post['title']['rendered'];
 				$subset->content = $post['content']['rendered'];
 				$subset->excerpt = $post['excerpt']['rendered'];
+				if ('full' === $atts['output'] ) {
+					$subset->fullcontent = $post['fullcontent'];
+				}
 
 				if ( ! empty( $post['featured_media'] ) && ! empty( $post['_links']['wp:featuredmedia'] ) ) {
 					$media_request_url = $post['_links']['wp:featuredmedia'][0]['href'];
