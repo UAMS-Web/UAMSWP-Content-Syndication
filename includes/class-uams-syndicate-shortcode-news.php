@@ -495,6 +495,7 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base {
 				$subset->ID = $post->id;
 				$subset->date = $post->date; // In time zone of requested site
 				$subset->link = $post->link;
+				$subset->modified = $post->modified; // Added for schema
 
 				// These fields all provide a rendered version when the response is generated.
 				$subset->title   = $post->title->rendered;
