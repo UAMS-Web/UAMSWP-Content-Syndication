@@ -437,9 +437,9 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base {
 							<div class="content-item-content" itemprop="articleBody">
 								<?php 
 									if ( $content->fullcontent ) {
-										echo wp_kses_post( $content->fullcontent );
+										echo do_shortcode( wp_kses_post( $content->fullcontent ) );
 									} else {
-										echo wp_kses_post( $content->content ); 
+										echo do_shortcode( wp_kses_post( $content->content ) ); 
 									}
 								?>
 								<hr size="1" width="75%"/>
