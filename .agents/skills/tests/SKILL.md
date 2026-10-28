@@ -17,7 +17,7 @@ description: >-
   Edit it there, not here; the next sync overwrites this copy.
   Delivered to this repository through the profile(s): tests.
 -->
-<!-- cspell:ignore absint ABSPATH autoloaded muplugins Packagist packagist Playwright tia wpdb yoast -->
+<!-- cspell:ignore absint ABSPATH autoloaded muplugins Packagist packagist phpcs Playwright Stache tia WPCS wpdb yoast -->
 
 # Tests
 
@@ -313,7 +313,7 @@ Where untested code cannot be loaded in isolation (definitions and registrations
 
 ## Full coverage
 
-"Bring test coverage to full" means the bar below (recorded while scoping UAMS-Web/uams-statamic#2834; UAMS-Web/uams-claude-skills#9). Every repository's coverage follow-up closes against this section. A bare line-% floor or a literal `100%` mutation score is not the bar.
+"Bring test coverage to full" means the bar below (recorded while scoping UAMS-Web/uams-statamic#255; UAMS-Web/uams-claude-skills#9). Every repository's coverage follow-up closes against this section. A bare line-% floor or a literal `100%` mutation score is not the bar.
 
 ### Population
 
@@ -375,6 +375,8 @@ Pest runs PHPUnit test classes unchanged, so a move is gradual and never a rewri
 The per-test conversion process (time the original, convert and audit, mutation-test, review, one test at a time) and the Pest syntax guide are the `phpunit-to-pest` and `pest-testing` skills, which this repository receives once its manifest entry carries the `pest` profile.
 
 ## Running the suite before a pull request
+
+The GitHub Actions form of the suite job is the `pest` job in the `code-quality` skill's `templates/ci.yml`, chained after the lint jobs and sharing its composite setup action; a repository that runs Pest in Actions copies that template rather than writing the job again.
 
 This repository is public, so Actions minutes are not billed and the suite may run in Actions on every pull request: a workflow that runs `composer install` and the repository's `composer test` script. A WordPress Integration suite there needs a MySQL service container and the `WP_TESTS_*` variables set in the job. Run the suite locally before opening the pull request either way.
 
