@@ -19,7 +19,7 @@ description: >-
   Edit it there, not here; the next sync overwrites this copy.
   Delivered to this repository through the profile(s): core.
 -->
-<!-- cspell:ignore restack restacking restacked unstack unstacking unstacked retarget retargets retargeted -->
+<!-- cspell:ignore restack restacking restacked unstack unstacking unstacked retarget retargets retargeted unpushed -->
 
 # Managing linked stacks
 

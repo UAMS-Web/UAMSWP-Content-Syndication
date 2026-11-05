@@ -10,8 +10,9 @@
 //   2. the organization default-branch rules (deletion, force push, pull request required): set
 //      through the `ruleset_family` property when the organization defines it, otherwise named for
 //      the owner, because adding a repository id to an organization ruleset needs `admin:org`;
-//   3. the repository ruleset "main: required checks", built from the repository's OWN workflow
-//      job names plus `Attribution footer` and `Closing keywords`.
+//   3. the `required_checks` property values `pr-body` and `ci-aggregate`, so the organization rulesets
+//      require the aggregate `CI` check and the two pull-request-body checks; no per-job repository
+//      ruleset is planned or written.
 // It then prints what stays with a human: the manifest entry and the sync dispatch, the wiki's
 // first page, tags and Packagist.
 //
@@ -21,13 +22,10 @@
 // of four calls on the one named repository, so nothing else can be written from here.
 //
 // Usage, from the repository root of the new add-on's checkout:
-//     node .claude/skills/repository-settings/scripts/apply-addon-settings.mjs <owner>/<repo> [--apply] [--yes] [--workflows <dir>]
+//     node .claude/skills/repository-settings/scripts/apply-addon-settings.mjs <owner>/<repo> [--apply] [--yes]
 //
-//   --workflows <dir>  the workflow directory the job names are read from (default .github/workflows)
-//
-// The job names come from `scripts/check-required-checks.mjs` in the checkout (the add-on
-// template's own check, which needs its `yaml` dependency installed), so the ruleset requires
-// exactly the names that check compares.
+// Nothing is read from the checkout: the command works from the API alone, so it needs neither the
+// template's scripts nor any dependency installed (UAMS-Web/uams-claude-skills#521).
 //
 // EXIT CODES
 //     0  nothing to change, a plan printed, or everything applied and read back clean
@@ -36,13 +34,13 @@
 //        or the run was not confirmed
 
 import { spawnSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
 import { createInterface } from 'node:readline'
-import { join, resolve } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { fileURLToPath } from 'node:url'
 
 import {
+    ATOMIC_CHECKS,
     BASELINE,
+    CHECKS_PROPERTY,
     FAMILIES,
     OPEN,
     RULESET_PROPERTY,
@@ -53,14 +51,17 @@ import {
     visibilityOf,
 } from './check-repository-settings.mjs'
 
-/** The repository ruleset this command owns. */
+/** The repository ruleset an earlier version of this command wrote; it is no longer planned, and an existing one is reported. */
 export const RULESET_NAME = 'main: required checks'
 
-/** The two pull-request-body workflows every repository requires, whatever its own jobs are. */
-export const BODY_CHECKS = ['Attribution footer', 'Closing keywords']
+/** The `required_checks` value this command adds: the organization ruleset requiring the aggregate `CI` check. */
+export const AGGREGATE_VALUE = 'ci-aggregate'
 
-/** The value a new add-on takes: the add-on organization rulesets, with its own required checks in a repository ruleset. */
-export const NEW_ADDON_FAMILY = 'addon'
+/** The `ruleset_family` value a new add-on takes: the default-branch rules only; its required checks come from `NEW_ADDON_CHECKS` (UAMS-Web/uams-claude-skills#511). */
+export const NEW_ADDON_FAMILY = 'base'
+
+/** The `required_checks` values a new add-on holds. */
+export const NEW_ADDON_CHECKS = ['pr-body', AGGREGATE_VALUE]
 
 /** Baseline rows a PATCH of the repository can set. */
 export const SETTINGS_ROWS = [
@@ -69,7 +70,7 @@ export const SETTINGS_ROWS = [
 ]
 
 /** Rows the rulesets steps own: they are judged by the read-back of those steps, not by the settings pass. */
-export const RULESET_ROWS = ['rule_deletion', 'rule_non_fast_forward', 'rule_pull_request', 'rule_required_status_checks', 'ruleset_family']
+export const RULESET_ROWS = ['rule_deletion', 'rule_non_fast_forward', 'rule_pull_request', 'rule_required_status_checks', 'ruleset_family', 'required_checks']
 
 const DEFAULT_RULES = ['deletion', 'non_fast_forward', 'pull_request']
 const ORG_SCHEMA_READ = /^orgs\/[\w.-]+\/properties\/schema$/
@@ -84,19 +85,17 @@ export function ghRead(args) {
 }
 
 /**
- * The only writes this command can make, all on one repository: PATCH of the repository, PATCH of its
- * property values, POST of a ruleset and PUT of a ruleset by id. Returns the call, or throws.
+ * The only writes this command can make, all on one repository: PATCH of the repository and PATCH of
+ * its property values. Returns the call, or throws.
  */
 export function writeGuard(target, method, path) {
     const base = `repos/${target}`
     const allowed = [
         ['PATCH', (p) => p === base],
         ['PATCH', (p) => p === `${base}/properties/values`],
-        ['POST', (p) => p === `${base}/rulesets`],
-        ['PUT', (p) => new RegExp(`^${base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/rulesets/\\d+$`).test(p)],
     ]
     if (!/^[\w.-]+\/[\w.-]+$/.test(target) || !allowed.some(([m, test]) => m === method && test(path))) {
-        throw new Error(`refusing a write that is not one of the four this command makes: ${method} ${path}`)
+        throw new Error(`refusing a write that is not one of the two this command makes: ${method} ${path}`)
     }
     return { method, path }
 }
@@ -110,23 +109,11 @@ export function makeWriter(target) {
     }
 }
 
-const sorted = (list) => [...new Set(list)].sort()
-const same = (a, b) => JSON.stringify(sorted(a)) === JSON.stringify(sorted(b))
-
-/** The required-check contexts a repository ruleset's rules list. */
-export function rulesetContexts(ruleset) {
-    return (ruleset?.rules ?? []).filter((rule) => rule?.type === 'required_status_checks').flatMap((rule) => (rule.parameters?.required_status_checks ?? []).map((check) => check?.context))
-}
-
-/** The repository ruleset body for a set of job names. */
-export function rulesetBody(jobNames) {
-    return {
-        name: RULESET_NAME,
-        target: 'branch',
-        enforcement: 'active',
-        conditions: { ref_name: { include: ['~DEFAULT_BRANCH'], exclude: [] } },
-        rules: [{ type: 'required_status_checks', parameters: { strict_required_status_checks_policy: false, do_not_enforce_on_create: false, required_status_checks: sorted([...jobNames, ...BODY_CHECKS]).map((context) => ({ context })) } }],
-    }
+/** The values the repository's `required_checks` property holds: an unset or null property is an empty list. */
+export function declaredRequiredChecks(snapshot) {
+    const value = (snapshot.properties ?? []).find((item) => item?.property_name === CHECKS_PROPERTY)?.value
+    if (value === null || value === undefined) return []
+    return Array.isArray(value) ? value.map(String) : [String(value)]
 }
 
 /** Whether the organization-sourced rules in effect include all three default-branch rule types. */
@@ -139,12 +126,12 @@ export function hasOrganizationDefaultRules(snapshot) {
  * What to change and what is left for a human, from what was read. `inputs`:
  *   snapshot       the checker's snapshot of the repository
  *   fullName       owner/repo
- *   jobNames       the workflow job names the repository reports on a pull request
- *   rulesets       the repository's rulesets as listed (`repos/{o}/{r}/rulesets`), each with `rules` read in
- *   schemaDefined  true or false when the organization property schema was read, undefined when it could not be
+ *   rulesets       the repository's rulesets as listed (`repos/{o}/{r}/rulesets`), read only to report a leftover "main: required checks"
+ *   schemaDefined  true or false when the organization property schema defined `ruleset_family`, undefined when it could not be read
+ *   checksDefined  the same for the `required_checks` property
  * Returns { changes: [{ id, say, method, path, body }], human: [string] }.
  */
-export function buildPlan({ snapshot, fullName, jobNames, rulesets, schemaDefined }) {
+export function buildPlan({ snapshot, fullName, rulesets, schemaDefined, checksDefined }) {
     const changes = []
     const human = []
     const visibility = visibilityOf(snapshot)
@@ -173,16 +160,20 @@ export function buildPlan({ snapshot, fullName, jobNames, rulesets, schemaDefine
         }
     }
 
-    // 3. the repository ruleset built from the repository's own job names
-    const wanted = sorted([...jobNames, ...BODY_CHECKS])
-    const own = (rulesets ?? []).find((ruleset) => ruleset?.name === RULESET_NAME && ruleset?.source_type === 'Repository')
-    if (own === undefined) {
-        changes.push({ id: 'ruleset', say: `create the repository ruleset "${RULESET_NAME}" requiring ${wanted.length} checks`, method: 'POST', path: `repos/${fullName}/rulesets`, body: rulesetBody(jobNames) })
-    } else if (!same(rulesetContexts(own), wanted)) {
-        const missing = wanted.filter((name) => !rulesetContexts(own).includes(name))
-        const extra = rulesetContexts(own).filter((name) => !wanted.includes(name))
-        changes.push({ id: 'ruleset', say: `update the repository ruleset "${RULESET_NAME}" (add: ${missing.join(', ') || 'none'}; remove: ${extra.join(', ') || 'none'})`, method: 'PUT', path: `repos/${fullName}/rulesets/${own.id}`, body: rulesetBody(jobNames) })
+    // 3. the aggregate `CI` check and the pull-request-body checks, required by the organization through the `required_checks` property
+    const declared = declaredRequiredChecks(snapshot)
+    const absent = NEW_ADDON_CHECKS.filter((value) => !declared.includes(value))
+    if (absent.length > 0) {
+        if (checksDefined === true) {
+            changes.push({ id: 'checks', say: `set the ${CHECKS_PROPERTY} property to ${[...declared, ...absent].join(', ')}`, method: 'PATCH', path: `repos/${fullName}/properties/values`, body: { properties: [{ property_name: CHECKS_PROPERTY, value: [...declared, ...absent] }] } })
+        } else {
+            human.push(`set the ${CHECKS_PROPERTY} property to include ${absent.join(' and ')} so the organization requires the aggregate CI check and the pull-request-body checks (the property is not defined for the organization${checksDefined === undefined ? ', or its schema could not be read with this credential' : ''})`)
+        }
     }
+
+    // a per-job ruleset from an earlier run is no longer maintained here, and this command never deletes
+    const own = (rulesets ?? []).find((ruleset) => ruleset?.name === RULESET_NAME && ruleset?.source_type === 'Repository')
+    if (own !== undefined) human.push(`the repository ruleset "${RULESET_NAME}" (id ${own.id}) from an earlier run still exists and is no longer maintained: remove it once the organization requires the aggregate CI check`)
 
     // what stays with a person whatever the run does
     human.push('add the repository to shared/manifest.json in UAMS-Web/uams-claude-skills (public: true, the profiles of the other add-ons), review the files it would receive, then approve the sync dispatch')
@@ -190,35 +181,38 @@ export function buildPlan({ snapshot, fullName, jobNames, rulesets, schemaDefine
     return { changes, human }
 }
 
-/** The check `check-required-checks.mjs --strict` makes: required names against reported names. */
-export function strictDrift(requiredContexts, jobNames) {
-    const reported = sorted([...jobNames, ...BODY_CHECKS])
-    const required = sorted(requiredContexts)
-    return { missing: required.filter((name) => !reported.includes(name)), notRequired: reported.filter((name) => !required.includes(name)) }
-}
-
 /** Known inputs the plan must handle. Returns the names of any it got wrong. */
 export function controlFailures() {
     const failed = []
     const snapshot = matchingSnapshot('public')
     snapshot.repo.id = 1
-    const jobs = ['CI', 'Pint']
-    const own = { id: 7, name: RULESET_NAME, source_type: 'Repository', rules: rulesetBody(jobs).rules }
-    const base = { snapshot, fullName: 'UAMS-Web/control', jobNames: jobs, rulesets: [own], schemaDefined: true }
+    snapshot.properties.push({ property_name: CHECKS_PROPERTY, value: [...NEW_ADDON_CHECKS] })
+    snapshot.rules.push({ type: 'required_status_checks', ruleset_source_type: 'Organization', ruleset_id: 3, parameters: { required_status_checks: [{ context: 'CI' }] } })
+    const base = { snapshot, fullName: 'UAMS-Web/control', rulesets: [], schemaDefined: true, checksDefined: true }
     if (buildPlan(base).changes.length !== 0) failed.push('a repository that matches the standard produced a change')
     const planted = structuredClone(snapshot)
     planted.repo.allow_merge_commit = true
     const settings = buildPlan({ ...base, snapshot: planted }).changes
     if (settings.length !== 1 || settings[0].id !== 'settings' || settings[0].body.allow_merge_commit !== false) failed.push('a planted merge-commit departure was not the one settings change')
-    if (!buildPlan({ ...base, rulesets: [] }).changes.some((change) => change.id === 'ruleset' && change.method === 'POST')) failed.push('a missing repository ruleset was not created')
-    const drifted = { ...own, rules: rulesetBody(['CI']).rules }
-    if (!buildPlan({ ...base, rulesets: [drifted] }).changes.some((change) => change.id === 'ruleset' && change.method === 'PUT')) failed.push('a ruleset missing a job name was not updated')
+    const unchecked = structuredClone(snapshot)
+    unchecked.properties = unchecked.properties.filter((item) => item.property_name !== CHECKS_PROPERTY)
+    const adds = buildPlan({ ...base, snapshot: unchecked }).changes
+    if (adds.length !== 1 || adds[0].id !== 'checks' || JSON.stringify(adds[0].body.properties[0].value) !== JSON.stringify(NEW_ADDON_CHECKS)) failed.push('a repository without the required_checks values did not get them as the one change')
+    const other = structuredClone(snapshot)
+    other.properties.find((item) => item.property_name === CHECKS_PROPERTY).value = [AGGREGATE_VALUE]
+    const kept = buildPlan({ ...base, snapshot: other }).changes
+    if (kept.length !== 1 || JSON.stringify(kept[0].body.properties[0].value) !== JSON.stringify([AGGREGATE_VALUE, 'pr-body'])) failed.push('an existing required_checks value was not kept beside the missing one')
+    if (!buildPlan({ ...base, snapshot: unchecked, checksDefined: false }).human.some((line) => line.includes(`include ${NEW_ADDON_CHECKS.join(' and ')}`))) failed.push('an undefined required_checks property was not left to the owner')
+    if (buildPlan({ ...base, rulesets: [{ id: 7, name: RULESET_NAME, source_type: 'Repository' }] }).changes.length !== 0) failed.push('a leftover per-job ruleset produced a change')
+    if (!buildPlan({ ...base, rulesets: [{ id: 7, name: RULESET_NAME, source_type: 'Repository' }] }).human.some((line) => line.includes('id 7'))) failed.push('a leftover per-job ruleset was not reported')
     const bare = structuredClone(snapshot)
     bare.rules = bare.rules.filter((rule) => rule.type === 'required_status_checks')
     bare.properties = []
-    if (!buildPlan({ ...base, snapshot: bare }).changes.some((change) => change.id === 'property')) failed.push('missing organization rules with a defined property did not set the property')
+    const setFamily = buildPlan({ ...base, snapshot: bare }).changes.find((change) => change.id === 'property')
+    if (setFamily === undefined) failed.push('missing organization rules with a defined property did not set the property')
+    else if (setFamily.body.properties[0].value !== 'base') failed.push('a new add-on was not given the base family')
     if (!buildPlan({ ...base, snapshot: bare, schemaDefined: false }).human.some((line) => line.includes('admin:org'))) failed.push('missing organization rules with no property was not left to the owner')
-    const guarded = [['PATCH', 'repos/UAMS-Web/other'], ['DELETE', 'repos/UAMS-Web/control'], ['PUT', 'repos/UAMS-Web/control/rulesets/abc'], ['POST', 'orgs/UAMS-Web/rulesets']]
+    const guarded = [['PATCH', 'repos/UAMS-Web/other'], ['DELETE', 'repos/UAMS-Web/control'], ['PUT', 'repos/UAMS-Web/control/rulesets/12'], ['POST', 'repos/UAMS-Web/control/rulesets'], ['POST', 'orgs/UAMS-Web/rulesets']]
     for (const [method, path] of guarded) {
         let refused = false
         try { writeGuard('UAMS-Web/control', method, path) } catch { refused = true }
@@ -229,26 +223,16 @@ export function controlFailures() {
 }
 
 function parseArgs(argv) {
-    const options = { repo: undefined, apply: false, yes: false, workflows: '.github/workflows' }
+    const options = { repo: undefined, apply: false, yes: false }
     for (let i = 0; i < argv.length; i++) {
         if (argv[i] === '--apply') options.apply = true
         else if (argv[i] === '--yes') options.yes = true
-        else if (argv[i] === '--workflows') options.workflows = argv[++i]
         else if (/^[\w.-]+\/[\w.-]+$/.test(argv[i]) && options.repo === undefined) options.repo = argv[i]
         else return { error: `unexpected argument ${argv[i]}` }
     }
     if (options.repo === undefined) return { error: 'name the repository as <owner>/<repo>' }
-    if (!options.workflows) return { error: '--workflows needs a directory' }
     if (options.yes && !options.apply) return { error: '--yes only answers the prompt of --apply' }
     return options
-}
-
-/** Job names from the checkout's own `scripts/check-required-checks.mjs`. */
-export async function loadJobNames(directory, cwd = process.cwd()) {
-    const script = join(cwd, 'scripts', 'check-required-checks.mjs')
-    if (!existsSync(script)) throw new Error(`${script} is missing: run this from the root of a repository generated from the add-on template`)
-    const module = await import(pathToFileURL(script).href)
-    return [...module.collectJobNames(resolve(cwd, directory)).keys()]
 }
 
 /** Ask on the terminal. Refuses when there is no terminal, so a pipe cannot answer for the owner. */
@@ -259,7 +243,7 @@ export function askOnTerminal(question) {
 }
 
 /** Everything the plan reads for one repository. Returns { inputs } or { error }. */
-function readInputs(gh, fullName, jobNames) {
+function readInputs(gh, fullName) {
     const read = readSnapshot(gh, fullName)
     if (read.error !== undefined) return { error: read.error }
     const json = (path) => {
@@ -273,18 +257,22 @@ function readInputs(gh, fullName, jobNames) {
         const rulesets = listed.map((item) => (item.source_type === 'Repository' ? { ...item, ...json(`repos/${fullName}/rulesets/${item.id}`) } : item))
         const schema = gh(['orgs/UAMS-Web/properties/schema'])
         let schemaDefined
+        let checksDefined
         if (schema.status === 0) {
             const parsed = JSON.parse(schema.stdout)
-            schemaDefined = Array.isArray(parsed) ? parsed.some((property) => property?.property_name === RULESET_PROPERTY) : undefined
+            if (Array.isArray(parsed)) {
+                schemaDefined = parsed.some((property) => property?.property_name === RULESET_PROPERTY)
+                checksDefined = parsed.some((property) => property?.property_name === CHECKS_PROPERTY)
+            }
         }
-        return { inputs: { snapshot: read.snapshot, fullName, jobNames, rulesets, schemaDefined } }
+        return { inputs: { snapshot: read.snapshot, fullName, rulesets, schemaDefined, checksDefined } }
     } catch (error) {
         return { error: error.message }
     }
 }
 
-/** Run the command. `gh`, `write`, `ask`, `jobNames` and `out` are injectable so the tests never reach the network. */
-export async function main(argv, { gh = ghRead, write, ask = askOnTerminal, jobNames = (directory) => loadJobNames(directory), out = (line) => console.log(line) } = {}) {
+/** Run the command. `gh`, `write`, `ask` and `out` are injectable so the tests never reach the network. */
+export async function main(argv, { gh = ghRead, write, ask = askOnTerminal, out = (line) => console.log(line) } = {}) {
     const options = parseArgs(argv)
     if (options.error !== undefined) {
         out(`apply-addon-settings: ${options.error}`)
@@ -295,15 +283,8 @@ export async function main(argv, { gh = ghRead, write, ask = askOnTerminal, jobN
         out(`apply-addon-settings: BROKEN INSTRUMENT, a control failed: ${broken.join('; ')}`)
         return 2
     }
-    let names
-    try {
-        names = await jobNames(options.workflows)
-    } catch (error) {
-        out(`apply-addon-settings: could not read the job names: ${error.message}`)
-        return 2
-    }
-    out(`apply-addon-settings: ${options.repo}, ${names.length} workflow jobs read, ${SETTINGS_ROWS.length} settings rows`)
-    const first = readInputs(gh, options.repo, names)
+    out(`apply-addon-settings: ${options.repo}, ${SETTINGS_ROWS.length} settings rows`)
+    const first = readInputs(gh, options.repo)
     if (first.error !== undefined) {
         out(`apply-addon-settings: could not read ${options.repo}: ${first.error}`)
         return 2
@@ -338,7 +319,7 @@ export async function main(argv, { gh = ghRead, write, ask = askOnTerminal, jobN
     }
 
     // read every change back from the API, not from what was sent
-    const second = readInputs(gh, options.repo, names)
+    const second = readInputs(gh, options.repo)
     if (second.error !== undefined) {
         out(`apply-addon-settings: could not read ${options.repo} back: ${second.error}`)
         return 2
@@ -348,20 +329,19 @@ export async function main(argv, { gh = ghRead, write, ask = askOnTerminal, jobN
         out(`  read back: ${item.id}: expected ${item.expected}, found ${item.found}`)
         bad++
     }
-    const own = second.inputs.rulesets.find((ruleset) => ruleset?.name === RULESET_NAME && ruleset?.source_type === 'Repository')
-    if (own === undefined || !same(rulesetContexts(own), [...names, ...BODY_CHECKS])) {
-        out(`  read back: the repository ruleset "${RULESET_NAME}" does not require exactly the workflow job names and ${BODY_CHECKS.join(' and ')}`)
+    for (const value of NEW_ADDON_CHECKS.filter((item) => !declaredRequiredChecks(second.inputs.snapshot).includes(item))) {
+        out(`  read back: the ${CHECKS_PROPERTY} property does not include ${value}`)
         bad++
     }
     if (!hasOrganizationDefaultRules(second.inputs.snapshot)) {
         out('  read back: the organization default-branch rules (deletion, force push, pull request required) do not reach this repository yet')
         bad++
     }
-    const required = second.inputs.snapshot.rules.filter((rule) => rule?.type === 'required_status_checks').flatMap((rule) => (rule.parameters?.required_status_checks ?? []).map((check) => check?.context))
-    const drift = strictDrift(required, names)
-    for (const name of drift.missing) out(`  read back: "${name}" is required and no job reports it`)
-    for (const name of drift.notRequired) out(`  read back: "${name}" is reported by a job and not required`)
-    bad += drift.missing.length + drift.notRequired.length
+    const required = second.inputs.snapshot.rules.filter((rule) => rule?.ruleset_source_type === 'Organization' && rule?.type === 'required_status_checks').flatMap((rule) => (rule.parameters?.required_status_checks ?? []).map((check) => check?.context))
+    for (const context of NEW_ADDON_CHECKS.flatMap((value) => ATOMIC_CHECKS[value]).filter((item) => !required.includes(item))) {
+        out(`  read back: no organization rule in effect requires "${context}" yet`)
+        bad++
+    }
     for (const line of buildPlan(second.inputs).human) out(`  left for a person: ${line}`)
     out(bad === 0 ? 'apply-addon-settings: read back clean' : `apply-addon-settings: ${bad} departures remain after the read-back`)
     return bad === 0 ? 0 : 1
