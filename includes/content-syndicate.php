@@ -9,7 +9,7 @@ add_action( 'plugins_loaded', 'UAMS\Content_Syndicate\bootstrap' );
  *
  * @since 1.0.0
  */
-function bootstrap() {
+function bootstrap(): void {
 	include_once __DIR__ . '/class-uams-syndicate-shortcode-base.php';
 
 	add_action( 'init', 'UAMS\Content_Syndicate\activate_shortcodes' );
@@ -22,8 +22,8 @@ function bootstrap() {
  *
  * @since 1.0.0
  */
-function activate_shortcodes() {
-	include_once dirname( __FILE__ ) . '/class-uams-syndicate-shortcode-news.php';
+function activate_shortcodes(): void {
+	include_once __DIR__ . '/class-uams-syndicate-shortcode-news.php';
 
 	// Add the [uamswp_json] shortcode to pull standard post content.
 	new \UAMS_Syndicate_Shortcode_News();
@@ -37,6 +37,6 @@ function activate_shortcodes() {
  *
  * @since 1.4.0
  */
-function clear_local_content_cache() {
+function clear_local_content_cache(): void {
 	wp_cache_set( 'last_changed', microtime(), 'uamswp-content' );
 }

@@ -17,7 +17,7 @@ class UAMS_Syndicate_Shortcode_Base {
 	 *
 	 * @var array
 	 */
-	public $defaults_atts = array(
+	public $defaults_atts = [
 		'object' => 'json_data',
 		'output' => 'json',
 		'host' => 'news.uams.edu', // originally 'uamshealth.com'
@@ -34,7 +34,7 @@ class UAMS_Syndicate_Shortcode_Base {
 		'offset' => 0,
 		'cache_bust' => '',
 		'id' => '',
-	);
+	];
 
 	/**
 	 * Defaults for individual base attributes can be overridden for a
@@ -42,14 +42,14 @@ class UAMS_Syndicate_Shortcode_Base {
 	 *
 	 * @var array
 	 */
-	public $local_default_atts = array();
+	public $local_default_atts = [];
 
 	/**
 	 * Defaults can be extended with additional keys by a specific shortcode.
 	 *
 	 * @var array
 	 */
-	public $local_extended_atts = array();
+	public $local_extended_atts = [];
 
 	/**
 	 * @var string The shortcode name.
@@ -60,7 +60,7 @@ class UAMS_Syndicate_Shortcode_Base {
 	/**
 	 * A common constructor that initiates the shortcode.
 	 */
-	public function construct() {
+	public function construct(): void {
 		$this->add_shortcode();
 	}
 
@@ -76,7 +76,7 @@ class UAMS_Syndicate_Shortcode_Base {
 	 *
 	 * @return string Final output for the shortcode.
 	 */
-	public function display_shortcode( $atts ) {
+	public function display_shortcode( $atts ): string {
 		return '';
 	}
 
@@ -107,7 +107,8 @@ class UAMS_Syndicate_Shortcode_Base {
 
 		$defaults = shortcode_atts( $defaults, $this->local_default_atts );
 		$defaults = array_merge( $defaults, $this->local_extended_atts );
-		$local_defaults = array();
+
+		$local_defaults = [];
 		// Allow for different attribute values to be passed when results from the
 		// local site are merged into results from a remote site.
 		foreach ( $defaults as $attribute => $value ) {
@@ -115,8 +116,10 @@ class UAMS_Syndicate_Shortcode_Base {
 			if ( array_key_exists( $attribute, $this->defaults_atts ) ) {
 				continue;
 			}
+
 			$local_defaults[ 'local_' . $attribute ] = $value;
 		}
+
 		$defaults = array_merge( $defaults, $local_defaults );
 		return shortcode_atts( $defaults, $atts, $this->shortcode_name );
 	}
@@ -145,7 +148,7 @@ class UAMS_Syndicate_Shortcode_Base {
 	 * @param string $shortcode Shortcode being displayed.
 	 * @param string $content   Generated content after processing the shortcode.
 	 */
-	public function set_content_cache( $atts, $shortcode, $content ) {
+	public function set_content_cache( $atts, $shortcode, $content ): void {
 		$atts_key = md5( serialize( $atts ) ); // @codingStandardsIgnoreLine
 
 		wp_cache_set( $atts_key, $content, $shortcode, 600 );
@@ -162,13 +165,14 @@ class UAMS_Syndicate_Shortcode_Base {
 	 *
 	 * @return array List of request information.
 	 */
-	public function build_initial_request( $site_url, $atts ) {
+	public function build_initial_request( $site_url, $atts ): array {
 		$url_scheme = 'https';
 		$local_site_id = false;
 		// Account for a previous version that allowed "local" as a manual scheme.
 		if ( 'local' === $atts['scheme'] ) {
 			$atts['scheme'] = 'http';
 		}
+
 		$home_url_data = wp_parse_url( trailingslashit( get_home_url() ) );
 		if ( $home_url_data['host'] === $site_url['host'] && $home_url_data['path'] === $site_url['path'] ) {
 			$local_site_id = 1;
@@ -176,10 +180,10 @@ class UAMS_Syndicate_Shortcode_Base {
 			// Local is assigned as a scheme only if the requesting site is the requested site.
 			$atts['scheme'] = 'local';
 		} elseif ( is_multisite() ) {
-			$local_site = get_blog_details( array(
+			$local_site = get_blog_details( [
 				'domain' => $site_url['host'],
 				'path' => $site_url['path'],
-			), false );
+			], false );
 			if ( $local_site ) {
 				$local_site_id = $local_site->blog_id;
 				$local_home_url = get_home_url( $local_site_id );
@@ -187,13 +191,13 @@ class UAMS_Syndicate_Shortcode_Base {
 				$atts['scheme'] = $url_scheme;
 			}
 		}
+
 		$request_url = esc_url( $url_scheme . '://' . $site_url['host'] . $site_url['path'] . $this->default_path ) . $atts['query'];
-		$request = array(
+		return [
 			'url' => $request_url,
 			'scheme' => $atts['scheme'],
 			'site_id' => $local_site_id,
-		);
-		return $request;
+		];
 	}
 
 	/**
@@ -210,10 +214,12 @@ class UAMS_Syndicate_Shortcode_Base {
 		} else {
 			$site_url = trailingslashit( esc_url( $atts['host'] ) );
 		}
+
 		$site_url = wp_parse_url( $site_url );
 		if ( empty( $site_url['host'] ) ) {
 			return false;
 		}
+
 		return $site_url;
 	}
 
@@ -233,30 +239,30 @@ class UAMS_Syndicate_Shortcode_Base {
 		 if ( ! empty( $atts['advanced_cat'] ) ) {
 		 	//$terms = $this->sanitized_terms( $atts['university_location_slug'] );
 		 	$terms = $this->sanitized_ids( $atts['advanced_cat'] );
-		 	$request_url = add_query_arg( array(
+		 	$request_url = add_query_arg( [
 		 		'filter[cat]' => $terms,
-		 	), $request_url );
+		 	], $request_url );
 		 }
 
 		if ( ! empty( $atts['site_category_slug'] ) ) {
 			$terms = $this->sanitized_terms( $atts['site_category_slug'] );
-			$request_url = add_query_arg( array(
+			$request_url = add_query_arg( [
 				'filter[category_name]' => $terms,
-			), $request_url );
+			], $request_url );
 		}
 
 		if ( ! empty( $atts['tag'] ) ) {
 			$terms = $this->sanitized_terms( $atts['tag'] );
-			$request_url = add_query_arg( array(
+			$request_url = add_query_arg( [
 				'filter[tag]' => $terms,
-			), $request_url );
+			], $request_url );
 		}
 
 		if ( ! empty( $atts['id'] ) ) {
 			$terms = $this->sanitized_ids( $atts['id'] );
-			$request_url = add_query_arg( array(
+			$request_url = add_query_arg( [
 				'filter[p]' => $terms,
-			), $request_url );
+			], $request_url );
         }
 
 		return $request_url;
@@ -271,12 +277,11 @@ class UAMS_Syndicate_Shortcode_Base {
 	 *
 	 * @return string Sanitized comma separated list of terms.
 	 */
-	public function sanitized_terms( $terms ) {
+	public function sanitized_terms( $terms ): string {
 		$term_array = explode( ',', $terms );
-		$sanitize_term_array = array_map( 'sanitize_key', $term_array );
-		$imploded_terms = implode( ',', $sanitize_term_array );
+		$sanitize_term_array = array_map( sanitize_key(...), $term_array );
 
-		return $imploded_terms;
+		return implode( ',', $sanitize_term_array );
 	}
 
 	/**
@@ -288,11 +293,10 @@ class UAMS_Syndicate_Shortcode_Base {
 	 *
 	 * @return string Sanitized comma separated list of ids.
 	 */
-	public function sanitized_ids( $terms ) {
+	public function sanitized_ids( $terms ): string {
 		$term_array = explode( ',', $terms );
-		$sanitize_term_array = array_map( 'intval', $term_array );
-		$imploded_terms = implode( ',', $sanitize_term_array );
+		$sanitize_term_array = array_map( intval(...), $term_array );
 
-		return $imploded_terms;
+		return implode( ',', $sanitize_term_array );
 	}
 }

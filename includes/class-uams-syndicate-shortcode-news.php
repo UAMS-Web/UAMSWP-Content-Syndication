@@ -6,32 +6,34 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base {
 	 * @var string Shortcode name.
 	 */
 	public $shortcode_name = 'uamswp_news';
+
 	public function __construct() {
 		parent::construct();
-		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_syndication_stylesheet' ) );
+		add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_syndication_stylesheet' ] );
 		if ( class_exists('UAMS_Shortcakes') ) {
-			add_action( 'admin_init', array( $this, 'build_shortcake' ) );
+			add_action( 'admin_init', [ $this, 'build_shortcake' ] );
 			add_editor_style( plugins_url( '/css/uams-syndication-admin.css', __DIR__ ) );
-			add_action( 'enqueue_shortcode_ui', function() {
+			add_action( 'enqueue_shortcode_ui', function(): void {
 				wp_enqueue_script( 'uams_syndications_editor_js', plugins_url( '/js/uams-syndication-shortcake.js', __DIR__ ) );
 			});
 		}
 		//add_action( 'admin_init', array( $this, 'enqueue_syndication_stylesheet_admin' ) );
 	}
+
 	/**
 	 * Add the shortcode provided.
 	 */
-	public function add_shortcode() {
-		add_shortcode( 'uamswp_news', array( $this, 'display_shortcode' ) );
+	public function add_shortcode(): void {
+		add_shortcode( 'uamswp_news', [ $this, 'display_shortcode' ] );
 	}
 
 	/**
 	 * Enqueue styles specific to the network admin dashboard.
 	 */
-	public function enqueue_syndication_stylesheet() {
+	public function enqueue_syndication_stylesheet(): void {
 		$post = get_post();
 	 	if ( isset( $post->post_content ) && has_shortcode( $post->post_content, 'uamswp_news' ) ) {
-			wp_enqueue_style( 'uamswp-syndication-news-style', plugins_url( '/css/uamswp-syndication-news.css', __DIR__ ), array(), '' );
+			wp_enqueue_style( 'uamswp-syndication-news-style', plugins_url( '/css/uamswp-syndication-news.css', __DIR__ ), [], '' );
 		}
 	}
 
@@ -41,87 +43,87 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base {
 	// public function enqueue_syndication_stylesheet_admin() {
 	// 	add_editor_style( 'uamswp-syndication-news-style-admin', plugins_url( '/css/uamswp-syndication-news.css', __DIR__ ), array(), '' );
 	// }
-	public function build_shortcake() {
+	public function build_shortcake(): void {
 		shortcode_ui_register_for_shortcode(
-	 
+
 			/** Your shortcode handle */
 			'uamswp_news',
-			 
+
 			/** Your Shortcode label and icon */
-			array(
-			 
+			[
+
 			/** Label for your shortcode user interface. This part is required. */
 			'label' => esc_html__('News Syndication', 'uamswp_news'),
-			 
+
 			/** Icon or an image attachment for shortcode. Optional. src or dashicons-$icon.  */
 			'listItemImage' => 'dashicons-rss',
-			 
+
 			/** Shortcode Attributes */
-			'attrs'          => array(
-			 
+			'attrs'          => [
+
 				/** Output format */
-				array(
+				[
 				'label'     => esc_html__('Format', 'uamswp_news'),
 				'attr'      => 'output',
 				'type'      => 'radio',
-				    'options' => array(
+				    'options' => [
 				        'headlines'      => 'Headline',
 				        'excerpts'    => 'Excerpt',
 				        'cards'     => 'Card',
 				        'full'     => 'Full',
-				    ),
+				    ],
 				'description'  => 'Preferred output format',
-				),
+				],
 
-				array(
-				 
+				[
+
 				/** This label will appear in user interface */
 				'label'        => esc_html__('Category', 'uamswp_news'),
 				'attr'         => 'site_category_slug',
 				'type'         => 'text',
 				'description'  => 'Please enter the filter / category',
-				),
+				],
 
 				/** Count - Number of articles */
-				array(
+				[
 				'label'        => esc_html__('Count', 'uamswp_news'),
 				'attr'         => 'count',
 				'type'         => 'number',
 				'description'  => 'Number of news articles to display',
-				'meta'   => array(
+				'meta'   => [
 						'placeholder' 	=> esc_html__( '1' ),
 						'min'			=> '1',
 						'step'			=> '1',
-					),
-				),
+					],
+				],
 
 				/** Offset - Number of articles to skip */
-				array(
+				[
 				'label'        => esc_html__('Offset', 'uamswp_news'),
 				'attr'         => 'offset',
 				'type'         => 'number',
 				'description'  => 'Number of news articles to skip',
-				'meta'   => array(
+				'meta'   => [
 						'placeholder' 	=> esc_html__( '0' ),
 						'min'			=> '0',
 						'step'			=> '1',
-					),
-				),
+					],
+				],
 
 				/** ID - ID of specific of articles */
-				array(
+				[
 				'label'        => esc_html__('Post ID', 'uamswp_news'),
 				'attr'         => 'postid',
 				'type'         => 'number',
 				'description'  => 'Specific ID of article',
-				),
+				],
 
-			 
-			),
-			 
+
+			],
+
 			/** You can select which post types will show shortcode UI */
-			'post_type'     => array( 'post', 'page' ), 
-			)
+			'post_type'     => [ 'post', 'page' ], 
+			]
 		);
 	}
 
@@ -159,7 +161,7 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base {
 	 *
 	 * @return string Data to output where the shortcode is used.
 	 */
-	public function display_shortcode( $atts ) {
+	public function display_shortcode( $atts ): string {
 		$atts = $this->process_attributes( $atts );
 
 		$site_url = $this->get_request_url( $atts );
@@ -181,24 +183,24 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base {
 		}
 		if ( $atts['count'] ) {
 			$count = ( 100 < absint( $atts['count'] ) ) ? 100 : $atts['count'];
-			$request_url = add_query_arg( array(
+			$request_url = add_query_arg( [
 				'per_page' => absint( $count ),
-			), $request_url );
+			], $request_url );
 		}
-		$request_url = add_query_arg( array(
+		$request_url = add_query_arg( [
 			'_embed' => '',
-		), $request_url );
+		], $request_url );
 
 		if ( 'headlines' === $atts['output'] ) {
-			$request_url = add_query_arg( array(
+			$request_url = add_query_arg( [
 				'_fields[]' => 'title',
-			), $request_url );
-			$request_url = add_query_arg( array(
+			], $request_url );
+			$request_url = add_query_arg( [
 				'_fields[]' => 'date',
-			), $request_url );
-			$request_url = add_query_arg( array(
+			], $request_url );
+			$request_url = add_query_arg( [
 				'_fields[]' => 'link',
-			), $request_url );
+			], $request_url );
 		}
 
 		if ( 'local' === $request['scheme'] ) {
@@ -220,9 +222,7 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base {
 				if ( ! is_wp_error( $response ) && 404 !== wp_remote_retrieve_response_code( $response ) ) {
 					$data = wp_remote_retrieve_body( $response );
 					$data = json_decode( $data );
-					if ( null === $data ) {
-						$data = array();
-					}
+					$data ??= [];
 					$new_data = $this->process_remote_posts( $data, $atts );
 					// Store the built content in cache for repeated use.
 					$this->set_content_cache( $atts, 'uamswp_news', $new_data );
@@ -231,11 +231,11 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base {
 		}
 
 		if ( ! is_array( $new_data ) ) {
-			$new_data = array();
+			$new_data = [];
 		}
 
 		if ( 0 !== absint( $atts['local_count'] ) ) {
-			$local_atts = array();
+			$local_atts = [];
 			foreach ( $atts as $attribute => $value ) {
 				if ( 0 === stripos( $attribute, 'local_' ) ) {
 					$local_atts[ substr( $attribute, 6 ) ] = $value;
@@ -249,24 +249,24 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base {
 			$request = $this->build_initial_request( $local_url, $local_atts );
 			$request_url = $this->build_taxonomy_filters( $local_atts, $request['url'] );
 			$local_count = ( 100 < absint( $local_atts['count'] ) ) ? 100 : $local_atts['count'];
-			$request_url = add_query_arg( array(
+			$request_url = add_query_arg( [
 				'per_page' => absint( $local_count ),
 				'_embed' => '',
-			), $request_url );
+			], $request_url );
 			$last_changed = wp_cache_get_last_changed( 'uamswp-content' );
 			$cache_key = md5( $request_url ) . ':' . $last_changed;
 			$local_data = wp_cache_get( $cache_key, 'uamswp-content' );
 			if ( ! is_array( $local_data ) ) {
 				$request = WP_REST_Request::from_url( $request_url );
 				$response = rest_do_request( $request );
-				$local_data = array();
+				$local_data = [];
 				if ( 200 === $response->get_status() ) {
 					$local_data = $this->process_local_posts( $response->data, $atts );
 				}
 				wp_cache_set( $cache_key, $local_data, 'uamswp-content' );
 			}
 			if ( is_array( $local_data ) ) {
-				$new_data = $new_data + $local_data;
+				$new_data += $local_data;
 			}
 		} // End if().
 
@@ -283,8 +283,7 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base {
 		if ( false === $content ) {
 			$content = $this->generate_shortcode_output( $new_data, $atts );
 		}
-		$content = apply_filters( 'uamswp_content_syndicate_news', $content, $atts );
-		return $content;
+		return apply_filters( 'uamswp_content_syndicate_news', $content, $atts );
 
 	}
 
@@ -298,7 +297,7 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base {
 	 *
 	 * @return string Content to display for the shortcode.
 	 */
-	private function generate_shortcode_output( $new_data, $atts ) {
+	private function generate_shortcode_output( array $new_data, $atts ): string|false {
 
 		ob_start();
 		// By default, we output a JSON object that can then be used by a script.
@@ -476,12 +475,12 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base {
 	 *
 	 * @return array Array of objects representing individual posts.
 	 */
-	public function process_remote_posts( $data, $atts ) {
+	public function process_remote_posts( $data, $atts ): array {
 		if ( empty( $data ) ) {
-			return array();
+			return [];
 		}
 
-		$new_data = array();
+		$new_data = [];
 
 		foreach ( $data as $post ) {
 			$subset = new StdClass();
@@ -544,7 +543,7 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base {
 				}
 
 				// We've always provided an empty value for terms. @todo Implement terms. :)
-				$subset->terms = array();
+				$subset->terms = [];
 
 			} // End if().
 
@@ -584,12 +583,12 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base {
 	 *
 	 * @return array Array of objects representing individual posts.
 	 */
-	public function process_local_posts( $data, $atts ) {
+	public function process_local_posts( $data, $atts ): array {
 		if ( empty( $data ) ) {
-			return array();
+			return [];
 		}
 
-		$new_data = array();
+		$new_data = [];
 
 		foreach ( $data as $post ) {
 			$subset = new stdClass();
@@ -643,7 +642,7 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base {
 				}
 
 				// We've always provided an empty value for terms. @todo Implement terms. :)
-				$subset->terms = array();
+				$subset->terms = [];
 			} // End if().
 
 			/**
