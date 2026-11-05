@@ -125,6 +125,10 @@ return RectorConfig::configure()
         // they redeclare the live classes, so analyzing them would only report
         // the duplicates.
         __DIR__.'/includes/_unused',
+        // The Integration suite's own Composer setup (the tests skill): its vendor/
+        // sits inside tests/, and Rector would otherwise rewrite PHPUnit 9 and its
+        // dependencies.
+        __DIR__.'/tests/Integration/vendor',
         ...$neverRules,
         ...($isSweepProfile ? [] : $sweepOnlyRules),
     ])

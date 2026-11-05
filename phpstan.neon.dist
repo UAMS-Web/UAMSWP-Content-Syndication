@@ -57,6 +57,10 @@ parameters:
     excludePaths:
         analyse:
             - includes/_unused
+            # The Integration suite's own Composer setup (the tests skill): its vendor/
+            # sits inside tests, and PHPStan would otherwise analyze PHPUnit 9 and its
+            # dependencies as this repository's code.
+            - tests/Integration/vendor
 
     # The Integration suite's own Composer setup (the tests skill): its vendor/
     # sits inside `tests`, so it is excluded from analysis, under `analyse`

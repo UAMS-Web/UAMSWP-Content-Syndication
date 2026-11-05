@@ -8,6 +8,7 @@ Description: Content Syndication plugin for uams.edu & uamshealth.com
 Author: uams, Todd McKee, MEd
 Author URI: http://www.uams.edu/
 Version: 1.4.5
+Requires PHP: 8.2
 */
 
 // If this file is called directly, abort.
