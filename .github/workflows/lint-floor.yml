@@ -50,7 +50,10 @@ jobs:
           failed=0
           while IFS= read -r -d '' file; do
             count=$((count + 1))
-            php -l "$file" > /dev/null || failed=$((failed + 1))
+            if ! out="$(php -l "$file" 2>&1)"; then
+              failed=$((failed + 1))
+              echo "$out"
+            fi
           done < <(find "$dir" -name '*.php' -print0)
           echo "parsed $count shipped PHP file(s), $failed failed"
           [ "$count" -gt 0 ] || { echo "no PHP file in the archive" >&2; exit 1; }
