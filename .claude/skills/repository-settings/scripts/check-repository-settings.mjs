@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// cspell:ignore Larastan
 // check-repository-settings.mjs: report, for each named repository, every setting that departs
 // from the baseline in this skill's SKILL.md for the repository's visibility
 // (UAMS-Web/uams-claude-skills#358).
