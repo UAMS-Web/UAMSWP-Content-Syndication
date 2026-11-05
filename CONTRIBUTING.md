@@ -44,3 +44,15 @@ composer test
 ```
 
 Run it before opening a pull request. Test files live in `tests/Unit` and are named `*Test.php`; a file named otherwise is not picked up.
+
+## Running the code-quality checks
+
+Rector, PHPStan and Pint run from the same `composer install`, in this order, and each must pass before a pull request:
+
+```sh
+composer test:refactor
+composer stan
+composer test:pint
+```
+
+`composer refactor` and `composer pint` apply what the first and third report. PHPStan runs at the level `phpstan.neon.dist` names (level 0 today) and rises one level per change, in the same pull request as the fixes for that level. `includes/_unused` is left out of all three tools because nothing loads it.

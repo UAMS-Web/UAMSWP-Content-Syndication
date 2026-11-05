@@ -1,20 +1,23 @@
 <?php
 
+declare(strict_types=1);
+
 namespace UAMS\Content_Syndicate;
 
-add_action( 'plugins_loaded', 'UAMS\Content_Syndicate\bootstrap' );
+add_action('plugins_loaded', 'UAMS\Content_Syndicate\bootstrap');
 
 /**
  * Loads the UAMSWP Content Syndicate base.
  *
  * @since 1.0.0
  */
-function bootstrap() {
-	include_once __DIR__ . '/class-uams-syndicate-shortcode-base.php';
+function bootstrap(): void
+{
+    include_once __DIR__.'/class-uams-syndicate-shortcode-base.php';
 
-	add_action( 'init', 'UAMS\Content_Syndicate\activate_shortcodes' );
-	add_action( 'save_post_post', 'UAMS\Content_Syndicate\clear_local_content_cache' );
-	add_action( 'save_post_page', 'UAMS\Content_Syndicate\clear_local_content_cache' );
+    add_action('init', 'UAMS\Content_Syndicate\activate_shortcodes');
+    add_action('save_post_post', 'UAMS\Content_Syndicate\clear_local_content_cache');
+    add_action('save_post_page', 'UAMS\Content_Syndicate\clear_local_content_cache');
 }
 
 /**
@@ -22,13 +25,14 @@ function bootstrap() {
  *
  * @since 1.0.0
  */
-function activate_shortcodes() {
-	include_once dirname( __FILE__ ) . '/class-uams-syndicate-shortcode-news.php';
+function activate_shortcodes(): void
+{
+    include_once __DIR__.'/class-uams-syndicate-shortcode-news.php';
 
-	// Add the [uamswp_json] shortcode to pull standard post content.
-	new \UAMS_Syndicate_Shortcode_News();
+    // Add the [uamswp_json] shortcode to pull standard post content.
+    new \UAMS_Syndicate_Shortcode_News;
 
-	do_action( 'uamswp_content_syndicate_shortcodes' );
+    do_action('uamswp_content_syndicate_shortcodes');
 }
 
 /**
@@ -37,6 +41,7 @@ function activate_shortcodes() {
  *
  * @since 1.4.0
  */
-function clear_local_content_cache() {
-	wp_cache_set( 'last_changed', microtime(), 'uamswp-content' );
+function clear_local_content_cache(): void
+{
+    wp_cache_set('last_changed', microtime(), 'uamswp-content');
 }
