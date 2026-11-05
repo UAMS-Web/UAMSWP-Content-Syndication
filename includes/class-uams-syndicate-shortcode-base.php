@@ -104,7 +104,7 @@ class UAMS_Syndicate_Shortcode_Base {
 	 */
 	public function process_attributes( $atts ) {
 		$defaults = apply_filters( 'uamswp_content_syndicate_default_atts', $this->defaults_atts );
-		
+
 		$defaults = shortcode_atts( $defaults, $this->local_default_atts );
 		$defaults = array_merge( $defaults, $this->local_extended_atts );
 		$local_defaults = array();
@@ -163,7 +163,7 @@ class UAMS_Syndicate_Shortcode_Base {
 	 * @return array List of request information.
 	 */
 	public function build_initial_request( $site_url, $atts ) {
-		$url_scheme = 'http';
+		$url_scheme = 'https';
 		$local_site_id = false;
 		// Account for a previous version that allowed "local" as a manual scheme.
 		if ( 'local' === $atts['scheme'] ) {
@@ -257,7 +257,7 @@ class UAMS_Syndicate_Shortcode_Base {
 			$request_url = add_query_arg( array(
 				'filter[p]' => $terms,
 			), $request_url );
-        }     
+        }
 
 		return $request_url;
 	}
