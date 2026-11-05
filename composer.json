@@ -1,0 +1,30 @@
+{
+    "name": "uams-web/uamswp-content-syndication",
+    "description": "UAMSWP Content Syndication plugin. Development dependencies only: nothing here is installed on a site.",
+    "type": "wordpress-plugin",
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.2"
+    },
+    "require-dev": {
+        "brain/monkey": "^2.7",
+        "pestphp/pest": "^5.3"
+    },
+    "config": {
+        "platform": {
+            "php": "8.4.27"
+        },
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "scripts": {
+        "test": "@test:unit",
+        "test:unit": "pest"
+    },
+    "scripts-descriptions": {
+        "test": "Run the suite.",
+        "test:unit": "Run the Pest suite that needs no WordPress and no database."
+    }
+}

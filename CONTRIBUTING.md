@@ -33,3 +33,14 @@ The [pull request template](.github/pull_request_template.md) fills in the skele
 
 Coding agents follow the same path. Their instructions are in [`AGENTS.md`](AGENTS.md) and the shared skills and rules under `.claude/`, which are synced from `UAMS-Web/uams-claude-skills`.
 <!-- uams-claude-skills:end -->
+
+## Running the tests
+
+The suite is Pest 5 with WordPress functions mocked by Brain Monkey, so it needs PHP 8.4 and Composer and nothing else: no database and no WordPress install. The Composer dependencies are development-only and are not part of the plugin download.
+
+```sh
+composer install
+composer test
+```
+
+Run it before opening a pull request. Test files live in `tests/Unit` and are named `*Test.php`; a file named otherwise is not picked up.
