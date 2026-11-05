@@ -7,7 +7,7 @@ Plugin URI: -
 Description: Content Syndication plugin for uams.edu & uamshealth.com
 Author: uams, Todd McKee, MEd
 Author URI: http://www.uams.edu/
-Version: 1.4.5
+Version: 1.4.5.2
 Requires PHP: 8.2
 */
 
