@@ -89,7 +89,6 @@ jobs:
           --health-timeout=5s
           --health-retries=10
     env:
-      WP_TESTS_ABSPATH: ${{ runner.temp }}/synd-wordpress
       WP_TESTS_DB_NAME: syndication_tests
       WP_TESTS_DB_USER: syndication_tests
       WP_TESTS_DB_PASSWORD: syndication_disposable
@@ -109,6 +108,8 @@ jobs:
         run: composer install --working-dir=tests/Integration --no-interaction --no-progress --prefer-dist
       - name: Download clean matched WordPress 6.8.3 fixture
         run: |
+          export WP_TESTS_ABSPATH="$RUNNER_TEMP/synd-wordpress"
+          echo "WP_TESTS_ABSPATH=$WP_TESTS_ABSPATH" >> "$GITHUB_ENV"
           curl --fail --location --retry 3 https://wordpress.org/wordpress-6.8.3.tar.gz -o "$RUNNER_TEMP/wordpress.tar.gz"
           mkdir -p "$WP_TESTS_ABSPATH"
           tar -xzf "$RUNNER_TEMP/wordpress.tar.gz" --strip-components=1 -C "$WP_TESTS_ABSPATH"
