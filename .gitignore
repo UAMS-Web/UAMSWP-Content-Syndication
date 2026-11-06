@@ -1,3 +1,5 @@
 /vendor/
 /.phpstan/
 /tests/Integration/vendor/
+/.amp/state/
+/.amp/portals/

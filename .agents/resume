@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+[[ "${AMP_ORB:-}" == 1 ]] || { echo 'This resume hook is for an Amp Linux orb.' >&2; exit 1; }
+cd "$(git rev-parse --show-toplevel)"
+amp orb services ensure
+for attempt in {1..10}; do
+    if MYSQL_PWD=syndication_disposable mariadb --protocol=tcp --host=127.0.0.1 \
+        --port=3307 --connect-timeout=1 --user=syndication_tests --database=syndication_tests \
+        --execute='SELECT 1' --skip-column-names; then
+        exit 0
+    fi
+    sleep 0.5
+done
+echo 'The disposable database did not become ready.' >&2
+exit 1

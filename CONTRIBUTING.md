@@ -64,6 +64,19 @@ Follow [`tests/Integration/README.md`](tests/Integration/README.md) for the matc
 
 Coverage and mutation explicitly exclude the six retained files in `includes/_unused`. They are unregistered retired implementations, not supported runtime behavior. The population is the plugin entry point, `includes/content-syndicate.php`, and the active base and News shortcode classes. This decision does not delete runtime files or change the download.
 
+## Amp orbs
+
+The executable [`.agents/setup`](.agents/setup) prepares Debian 12 Linux orbs with the exact development PHP from `composer.json`, PHP 8.2 for floor linting, PCOV, Composer, both locked dependency sets, and a clean WordPress core matching the integration lock. If the PHP pin is no longer available from the package repository, setup fails rather than silently selecting another version. Setup does not run tests or start database services.
+
+[`.agents/resume`](.agents/resume) ensures the loopback-only MariaDB service declared in [`.amp/services.yaml`](.amp/services.yaml) is running and verifies a query using its restricted disposable account. No database portal is created. Fixture and database state live under ignored `.amp/state/`; rerunning setup or resume preserves existing test data. Integration tests themselves still rebuild their disposable tables on each run, so run the modes serially:
+
+```sh
+WP_TESTS_ABSPATH="$PWD/.amp/state/wordpress-6.8.3" composer test:integration
+WP_TESTS_ABSPATH="$PWD/.amp/state/wordpress-6.8.3" WP_MULTISITE=1 composer test:integration
+```
+
+The fixture suffix is the locked `wp-phpunit/wp-phpunit` version, currently `6.8.3`. These lifecycle hooks are for Linux orbs only, not installation scripts for macOS or Windows workstations. They become automatic for future orbs after reaching the project's default branch, unless explicitly installed through Amp project setup settings.
+
 ## Running the code-quality checks
 
 Rector, PHPStan and Pint run from the root Composer setup, in this order, and each must pass before pushing. PHPStan also needs `composer setup:integration` for the WordPress test classes:
