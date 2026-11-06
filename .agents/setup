@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "${AMP_ORB:-}" != 1 || "$(uname -s)" != Linux ]]; then
+    echo 'This setup is for an Amp Linux orb, not a local workstation.' >&2
+    exit 1
+fi
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+started=$SECONDS
+php_version="$(jq -r '.config.platform.php' composer.json)"
+php_minor="${php_version%.*}"
+scratch="$(mktemp -d)"
+database_stage=''
+trap 'rm -rf "$scratch"; if [[ -n "$database_stage" ]]; then rm -rf "$database_stage"; fi' EXIT
+
+echo "Preparing PHP $php_version, PHP 8.2 floor lint, PCOV, and MariaDB"
+if ! command -v "php$php_minor" >/dev/null \
+    || ! "php$php_minor" -r 'exit(PHP_VERSION === $argv[1] && extension_loaded("pcov") && extension_loaded("mysqli") && extension_loaded("mbstring") && extension_loaded("dom") && extension_loaded("curl") && extension_loaded("zip") ? 0 : 1);' "$php_version" \
+    || ! command -v php8.2 >/dev/null \
+    || [[ ! -x /usr/sbin/mariadbd ]] \
+    || ! command -v mariadb-install-db >/dev/null \
+    || ! command -v mariadb >/dev/null; then
+    if [[ ! -f /usr/share/keyrings/debsuryorg-archive-keyring.gpg ]]; then
+        keyring="$scratch/keyring.deb"
+        curl --fail --location --connect-timeout 10 --max-time 120 --retry 3 https://packages.sury.org/debsuryorg-archive-keyring.deb -o "$keyring"
+        sudo dpkg -i "$keyring"
+    fi
+    printf 'deb [signed-by=/usr/share/keyrings/debsuryorg-archive-keyring.gpg] https://packages.sury.org/php/ bookworm main\n' \
+        | sudo tee /etc/apt/sources.list.d/php.list >/dev/null
+    sudo apt-get update -qq
+    package_version="$(apt-cache madison "php$php_minor-cli" | awk -v pin="$php_version-" 'index($3, pin) == 1 { print $3; exit }')"
+    if [[ -z "$package_version" ]]; then
+        echo "The PHP $php_version pin is unavailable from the Debian 12 PHP repository; refusing a version substitution." >&2
+        exit 1
+    fi
+    packages=()
+    for extension in cli common opcache readline mbstring xml curl zip mysql; do
+        packages+=("php$php_minor-$extension=$package_version")
+    done
+    sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y --allow-downgrades --no-install-recommends \
+        "${packages[@]}" "php$php_minor-pcov" php8.2-cli mariadb-server mariadb-client
+fi
+sudo update-alternatives --set php "/usr/bin/php$php_minor"
+php -r 'if (PHP_VERSION !== $argv[1]) { fwrite(STDERR, "The default PHP does not match composer.json.\n"); exit(1); }' "$php_version"
+
+if ! command -v composer >/dev/null; then
+    curl --fail --location --connect-timeout 10 --max-time 120 --retry 3 https://getcomposer.org/installer -o "$scratch/composer-setup.php"
+    expected="$(curl --fail --location --connect-timeout 10 --max-time 120 --retry 3 https://composer.github.io/installer.sig)"
+    actual="$(php -r 'echo hash_file("sha384", $argv[1]);' "$scratch/composer-setup.php")"
+    [[ "$actual" == "$expected" ]] || { echo 'Composer installer checksum mismatch.' >&2; exit 1; }
+    sudo php "$scratch/composer-setup.php" --2 --install-dir=/usr/local/bin --filename=composer --quiet
+fi
+
+echo "Installing both committed dependency locks (${SECONDS}s elapsed)"
+composer install --no-interaction --no-progress --prefer-dist
+composer install --working-dir=tests/Integration --no-interaction --no-progress --prefer-dist
+
+state="$repo_root/.amp/state"
+wordpress_version="$(jq -er '[.packages[], ."packages-dev"[]] | map(select(.name == "wp-phpunit/wp-phpunit")) | if length == 1 then .[0].version else error("Expected one WordPress test-library pin") end' tests/Integration/composer.lock)"
+[[ "$wordpress_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'Invalid WordPress test-library version.' >&2; exit 1; }
+wordpress="$state/wordpress-$wordpress_version"
+echo "Preparing matched WordPress $wordpress_version fixture (${SECONDS}s elapsed)"
+if [[ ! -f "$wordpress/wp-settings.php" ]]; then
+    mkdir -p "$wordpress"
+    archive="$scratch/wordpress.tar.gz"
+    curl --fail --location --connect-timeout 10 --max-time 120 --retry 3 "https://wordpress.org/wordpress-$wordpress_version.tar.gz" -o "$archive"
+    tar -xzf "$archive" --strip-components=1 -C "$wordpress"
+fi
+php -r 'require $argv[1]."/wp-includes/version.php"; if ($wp_version !== $argv[2]) { fwrite(STDERR, "WordPress fixture and test-library versions differ.\n"); exit(1); }' "$wordpress" "$wordpress_version"
+
+echo "Preparing disposable database files (${SECONDS}s elapsed)"
+if [[ ! -e "$state/mariadb" ]]; then
+    database_stage="$(mktemp -d "$state/mariadb-init.XXXXXX")"
+    mariadb-install-db --datadir="$database_stage" --auth-root-authentication-method=normal --skip-test-db
+    mv "$database_stage" "$state/mariadb"
+    database_stage=''
+fi
+[[ -d "$state/mariadb/mysql" ]] || { echo 'Existing database state is incomplete; refusing to replace it.' >&2; exit 1; }
+cat > "$state/mariadb-init.sql" <<'SQL'
+CREATE DATABASE IF NOT EXISTS syndication_tests;
+CREATE USER IF NOT EXISTS 'syndication_tests'@'127.0.0.1' IDENTIFIED BY 'syndication_disposable';
+GRANT ALL PRIVILEGES ON syndication_tests.* TO 'syndication_tests'@'127.0.0.1';
+SQL
+
+echo "Orb setup finished in $((SECONDS - started))s; .agents/resume starts the private database."
