@@ -57,6 +57,12 @@ composer test:pint
 
 `composer refactor` and `composer pint` apply what the first and third report. PHPStan runs at the level `phpstan.neon.dist` names (level 0 today) and rises one level per change, in the same pull request as the fixes for that level. `includes/_unused` is left out of all three tools because nothing loads it.
 
+## Remote checks
+
+The `CI` workflow runs on every pull request and push to `master`. It verifies the synced files, validates the Composer configuration and lockfile, installs the locked dependencies, and runs Pint, Rector, PHPStan and Pest on PHP 8.4.27 on Linux, macOS and Windows. Its aggregate `CI` check fails unless every prerequisite succeeds, including every operating-system leg; skipped and cancelled prerequisites do not count as passing.
+
+Run the local checks before pushing, then open the pull request as a draft. Mark it ready only after every remote check on its current head succeeds. The archive and PHP floor workflows run separately and must also pass. These workflows do not change repository settings or required checks, and they do not yet run mutation testing or WordPress integration tests.
+
 ## The PHP floor
 
 The plugin supports PHP 8.2 and later (`Requires PHP` in the plugin header and `require.php` in `composer.json`). Development, the tools and the suite run on PHP 8.4, which accepts syntax that 8.2 rejects, so the `Lint floor` workflow parses every PHP file in the plugin download with PHP 8.2. To check locally, run `php -l` on each file with a PHP 8.2 binary. A future integration suite on PHPUnit 9.6 installs on its own under `tests/Integration/`, and its `vendor/` is left out of Rector and PHPStan.
