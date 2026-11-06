@@ -25,5 +25,9 @@
             <directory suffix=".php">./includes</directory>
             <file>./uamswp-content-syndication.php</file>
         </include>
+        <!-- Retained retired implementations are not loaded by the plugin. -->
+        <exclude>
+            <directory>./includes/_unused</directory>
+        </exclude>
     </source>
 </phpunit>

@@ -53,10 +53,12 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
-          key: composer-${{ runner.os }}-php8.4.27-${{ hashFiles('composer.lock') }}
+          key: composer-${{ runner.os }}-php8.4.27-${{ hashFiles('composer.lock', 'tests/Integration/composer.lock') }}
           restore-keys: composer-${{ runner.os }}-
       - name: Install locked dependencies
         run: composer install --no-interaction --no-progress --prefer-dist
+      - name: Install locked integration dependencies for analysis and safety tests
+        run: composer install --working-dir=tests/Integration --no-interaction --no-progress --prefer-dist
       - name: Check formatting
         run: composer test:pint
       - name: Check refactoring
@@ -66,9 +68,60 @@ jobs:
       - name: Run unit tests
         run: composer test
 
+  integration:
+    name: WordPress integration
+    needs: [synced-files]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      mariadb:
+        image: mariadb:10.11.19
+        env:
+          MARIADB_ROOT_PASSWORD: disposable_root
+          MARIADB_DATABASE: syndication_tests
+          MARIADB_USER: syndication_tests
+          MARIADB_PASSWORD: syndication_disposable
+        ports:
+          - 127.0.0.1:3307:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      WP_TESTS_ABSPATH: ${{ runner.temp }}/synd-wordpress
+      WP_TESTS_DB_NAME: syndication_tests
+      WP_TESTS_DB_USER: syndication_tests
+      WP_TESTS_DB_PASSWORD: syndication_disposable
+      WP_TESTS_DB_HOST: 127.0.0.1:3307
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up PHP 8.4.27 and Composer
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4.27'
+          extensions: mysqli
+          coverage: none
+          tools: composer:v2
+      - name: Validate integration Composer configuration
+        run: composer validate --working-dir=tests/Integration --strict --no-check-publish
+      - name: Install locked integration dependencies
+        run: composer install --working-dir=tests/Integration --no-interaction --no-progress --prefer-dist
+      - name: Download clean matched WordPress 6.8.3 fixture
+        run: |
+          curl --fail --location --retry 3 https://wordpress.org/wordpress-6.8.3.tar.gz -o "$RUNNER_TEMP/wordpress.tar.gz"
+          mkdir -p "$WP_TESTS_ABSPATH"
+          tar -xzf "$RUNNER_TEMP/wordpress.tar.gz" --strip-components=1 -C "$WP_TESTS_ABSPATH"
+      - name: Run WordPress single-site tests
+        run: tests/Integration/vendor/bin/phpunit -c tests/Integration/phpunit.xml
+      - name: Run WordPress multisite tests
+        env:
+          WP_MULTISITE: '1'
+        run: tests/Integration/vendor/bin/phpunit -c tests/Integration/phpunit.xml
+
   ci:
     name: CI
-    needs: [synced-files, php]
+    needs: [synced-files, php, integration]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5

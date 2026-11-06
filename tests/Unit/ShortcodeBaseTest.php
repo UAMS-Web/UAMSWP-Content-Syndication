@@ -4,15 +4,21 @@
  * UAMS_Syndicate_Shortcode_Base request building and input sanitizing, with
  * WordPress mocked.
  *
+ * @command  vendor/bin/pest tests/Unit/ShortcodeBaseTest.php
+ *
  * @see includes/class-uams-syndicate-shortcode-base.php
  */
 
 declare(strict_types=1);
 
+use Brain\Monkey\Filters;
 use Brain\Monkey\Functions;
 
+use function Brain\Monkey\Filters\expectApplied;
 use function Brain\Monkey\Functions\stubEscapeFunctions;
 use function Brain\Monkey\Functions\when;
+
+covers(UAMS_Syndicate_Shortcode_Base::class);
 
 beforeEach(function (): void {
     stubEscapeFunctions();
@@ -94,4 +100,158 @@ it('uses the home URL scheme and marks the scheme local when the requested site 
         'scheme' => 'local',
         'site_id' => 1,
     ]);
+});
+
+it('keeps the complete base defaults and empty extension behavior', function (): void {
+    expect($this->shortcode->defaults_atts)->toBe([
+        'object' => 'json_data', 'output' => 'json', 'host' => 'news.uams.edu',
+        'scheme' => 'https', 'site' => '', 'site_category_slug' => '',
+        'advanced_cat' => '', 'tag' => '', 'style' => '', 'query' => 'posts',
+        'local_count' => 0, 'count' => false, 'date_format' => 'F j, Y',
+        'offset' => 0, 'cache_bust' => '', 'id' => '',
+    ])->and($this->shortcode->local_default_atts)->toBe([])
+        ->and($this->shortcode->local_extended_atts)->toBe([])
+        ->and($this->shortcode->shortcode_name)->toBe('')
+        ->and($this->shortcode->default_path)->toBe('wp-json/wp/v2/')
+        ->and($this->shortcode->display_shortcode([]))->toBe('');
+
+    // Exercise the base no-op registration without requiring a subclass.
+    $this->shortcode->construct();
+});
+
+it('lets a concrete shortcode register through the base constructor', function (): void {
+    Functions\expect('add_shortcode')->once()->with('uamswp_news', Mockery::on(
+        fn (mixed $callback): bool => \is_array($callback)
+            && $callback[0] instanceof UAMS_Syndicate_Shortcode_News
+            && $callback[1] === 'display_shortcode',
+    ));
+
+    new UAMS_Syndicate_Shortcode_News;
+});
+
+it('merges filtered defaults and extension-only local attributes without accepting unknown keys', function (): void {
+    // Model WordPress attribute selection, including its final named filter.
+    when('shortcode_atts')->alias(function (array $defaults, array $atts, string $shortcode = ''): array {
+        $result = array_replace($defaults, array_intersect_key($atts, $defaults));
+
+        return $shortcode === 'probe' ? array_replace($result, ['style' => 'filtered-style']) : $result;
+    });
+
+    // Give each precedence layer a distinct value and one extension key.
+    expectApplied('uamswp_content_syndicate_default_atts')->once()
+        ->andReturnUsing(fn (array $defaults): array => array_replace($defaults, ['count' => 7, 'extra' => 'filtered']));
+    $this->shortcode->shortcode_name = 'probe';
+    $this->shortcode->local_default_atts = ['count' => 9, 'unknown' => 'ignored'];
+    $this->shortcode->local_extended_atts = ['extra' => 'extended', 'color' => 'red'];
+
+    // Assert precedence, local extension generation, and final filter output.
+    $result = $this->shortcode->process_attributes(['count' => 3, 'local_color' => 'blue', 'unknown' => 'ignored']);
+    expect($result)->toBe([
+        'object' => 'json_data', 'output' => 'json', 'host' => 'news.uams.edu',
+        'scheme' => 'https', 'site' => '', 'site_category_slug' => '',
+        'advanced_cat' => '', 'tag' => '', 'style' => 'filtered-style', 'query' => 'posts',
+        'local_count' => 0, 'count' => 3, 'date_format' => 'F j, Y',
+        'offset' => 0, 'cache_bust' => '', 'id' => '', 'extra' => 'extended',
+        'color' => 'red', 'local_extra' => 'extended', 'local_color' => 'blue',
+    ]);
+});
+
+it('isolates cached content by shortcode and all attributes including cache bust', function (): void {
+    // Keep an in-memory WordPress cache with the same group/key separation.
+    $cache = [];
+    when('wp_cache_set')->alias(function (string $key, mixed $value, string $group, int $expiry) use (&$cache): void {
+        expect($expiry)->toBe(600);
+        $cache[$group][$key] = $value;
+    });
+    when('wp_cache_get')->alias(function (string $key, string $group) use (&$cache): mixed {
+        return $cache[$group][$key] ?? false;
+    });
+
+    // Read each value back through the public API rather than its hash helper.
+    $atts = ['count' => 2, 'cache_bust' => 'a'];
+    $other = ['count' => 3, 'cache_bust' => 'a'];
+    $this->shortcode->set_content_cache($atts, 'news', ['first']);
+    $this->shortcode->set_content_cache($other, 'news', ['second']);
+    $this->shortcode->set_content_cache($atts, 'cards', ['third']);
+    expect($this->shortcode->get_content_cache($atts, 'news'))->toBe(['first'])
+        ->and($this->shortcode->get_content_cache($other, 'news'))->toBe(['second'])
+        ->and($this->shortcode->get_content_cache($atts, 'cards'))->toBe(['third'])
+        ->and($this->shortcode->get_content_cache(['count' => 2, 'cache_bust' => 'b'], 'news'))->toBeFalse();
+});
+
+it('adds only populated taxonomy filters after the extension filter', function (): void {
+    // Expose query values without duplicating the plugin's decision logic.
+    when('add_query_arg')->alias(function (array $args, string $url): string {
+        $parts = parse_url($url);
+        parse_str($parts['query'] ?? '', $query);
+
+        return $parts['scheme'].'://'.$parts['host'].$parts['path'].'?'.http_build_query(array_replace($query, $args));
+    });
+    when('sanitize_key')->alias(fn (string $key): string => preg_replace('/[^a-z0-9_\-]/', '', strtolower($key)));
+    expectApplied('uamswp_content_syndicate_taxonomy_filters')->twice()
+        ->andReturnUsing(fn (string $url): string => $url.'?extension=kept');
+
+    // Preserve the extension query when there are no built-in filters.
+    $url = 'https://example.org/posts';
+    expect($this->shortcode->build_taxonomy_filters([], $url))->toBe($url.'?extension=kept');
+
+    // Verify each independent attribute maps to its own WordPress query key.
+    $filtered = $this->shortcode->build_taxonomy_filters([
+        'advanced_cat' => '-4,9x', 'site_category_slug' => 'Press!,Health',
+        'tag' => 'Topic_A,SCIENCE', 'id' => '15,bad',
+    ], $url);
+    parse_str(parse_url($filtered, PHP_URL_QUERY), $query);
+    expect($query)->toBe([
+        'extension' => 'kept', 'filter' => [
+            'cat' => '-4,9', 'category_name' => 'press,health',
+            'tag' => 'topic_a,science', 'p' => '15,0',
+        ],
+    ]);
+});
+
+it('normalizes the legacy local scheme without mistaking another path for home', function (): void {
+    when('get_home_url')->justReturn('http://same.example/one');
+
+    expect($this->shortcode->build_initial_request(
+        ['host' => 'same.example', 'path' => '/two/'],
+        ['scheme' => 'local', 'query' => 'pages?status=publish'],
+    ))->toBe([
+        'url' => 'https://same.example/two/wp-json/wp/v2/pages?status=publish',
+        'scheme' => 'http', 'site_id' => false,
+    ]);
+});
+
+it('uses a network site home scheme but leaves unmatched hosts remote', function (bool $found): void {
+    // Distinguish current home, matching subsite, and a non-network host.
+    when('get_home_url')->alias(fn (int $id = 0): string => $id === 37 ? 'http://network.example/child/' : 'https://home.example/root/');
+    when('is_multisite')->justReturn(true);
+    Functions\expect('get_blog_details')->once()
+        ->with(['domain' => 'network.example', 'path' => '/child/'], false)
+        ->andReturn($found ? (object) ['blog_id' => 37] : false);
+
+    expect($this->shortcode->build_initial_request(
+        ['host' => 'network.example', 'path' => '/child/'],
+        ['scheme' => 'https', 'query' => 'pages'],
+    ))->toBe([
+        'url' => ($found ? 'http' : 'https').'://network.example/child/wp-json/wp/v2/pages',
+        'scheme' => $found ? 'http' : 'https', 'site_id' => $found ? 37 : false,
+    ]);
+})->with([true, false]);
+
+it('round trips signed integer lists across deterministic generated inputs', function (): void {
+    // Generate asymmetric signed values without relying on global random state.
+    $seed = 73;
+    for ($sample = 0; $sample < 40; $sample++) {
+        $expected = [];
+        $input = [];
+        for ($item = 0; $item < 5; $item++) {
+            $seed = ($seed * 48271) % 2147483647;
+            $number = ($seed % 20001) - 10000;
+            $expected[] = (string) $number;
+            $input[] = ' '.$number.'suffix';
+        }
+
+        // Preserve order, signs, zero, and list length through sanitizing.
+        expect($this->shortcode->sanitized_ids(implode(',', $input)))->toBe(implode(',', $expected));
+    }
 });

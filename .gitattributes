@@ -6,3 +6,5 @@
 /includes -export-ignore
 /css -export-ignore
 /js -export-ignore
+
+docs/DECISIONS.md merge=union

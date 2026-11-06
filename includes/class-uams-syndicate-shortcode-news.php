@@ -186,7 +186,10 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
             $atts['count'] = absint($atts['count']) + absint($atts['offset']);
         }
         if ($atts['count']) {
-            $count = (absint($atts['count']) > 100) ? 100 : $atts['count'];
+            // At exactly 100 both branches normalize to the same request count.
+            $count = (absint($atts['count']) > 100) // @pest-mutate-ignore: GreaterToGreaterOrEqual, DecrementInteger
+                ? 100
+                : $atts['count'];
             $request_url = add_query_arg([
                 'per_page' => absint($count),
             ], $request_url);
@@ -247,12 +250,16 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
                     $local_atts[$attribute] = $value;
                 }
             }
-            $local_shortcodes['host'] = get_site()->domain.get_site()->path;
+            // This legacy assignment is never read; retain it without mutating its value.
+            $local_shortcodes['host'] = get_site()->domain.get_site()->path; // @pest-mutate-ignore: ConcatRemoveLeft, ConcatRemoveRight, ConcatSwitchSides
             $local_atts['count'] = $atts['local_count'];
             $local_url = $this->get_request_url($local_atts);
             $request = $this->build_initial_request($local_url, $local_atts);
             $request_url = $this->build_taxonomy_filters($local_atts, $request['url']);
-            $local_count = (absint($local_atts['count']) > 100) ? 100 : $local_atts['count'];
+            // Keep the returned cap mutable, ignoring only the equivalent boundary.
+            $local_count = (absint($local_atts['count']) > 100) // @pest-mutate-ignore: GreaterToGreaterOrEqual, DecrementInteger
+                ? 100
+                : $local_atts['count'];
             $request_url = add_query_arg([
                 'per_page' => absint($local_count),
                 '_embed' => '',
