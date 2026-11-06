@@ -27,6 +27,14 @@
     "scripts": {
         "test": "@test:unit",
         "test:unit": "pest",
+        "test:coverage": "pest --coverage",
+        "mutate": [
+            "Composer\\Config::disableProcessTimeout",
+            "pest tests/Unit/BootstrapTest.php tests/Unit/IntegrationBootstrapTest.php tests/Unit/NewsShortcodeTest.php tests/Unit/ShortcakeTest.php tests/Unit/ShortcodeBaseTest.php --mutate --everything --path=includes,uamswp-content-syndication.php --ignore=includes/_unused --no-cache"
+        ],
+        "test:decisions": "node .claude/skills/decision-log/scripts/check-decision-log-order.mjs",
+        "setup:integration": "@composer install --working-dir=tests/Integration --no-interaction --prefer-dist",
+        "test:integration": "@composer test --working-dir=tests/Integration",
         "stan": "phpstan analyse --no-progress --memory-limit=2G",
         "refactor": "rector",
         "refactor:sweep": "rector --clear-cache --config=rector-sweep.php",
