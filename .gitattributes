@@ -1,3 +1,5 @@
+* text=auto eol=lf
+
 /* export-ignore
 /.* export-ignore
 /uamswp-content-syndication.php -export-ignore

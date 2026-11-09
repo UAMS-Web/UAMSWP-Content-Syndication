@@ -4,9 +4,11 @@ name: CI
 #
 # The lint and unit chain is the shared one, `UAMS-Web/uams-ci-workflows`, called by the
 # `checks` job, so this plugin does not carry a copy that drifts. The call switches on the
-# two jobs only a plugin runs (`floor-lint`, `download-archive`), runs on Linux only, leaves
-# mutation testing off, and runs the unit suite as `composer test:unit`. `phpcs` stays off:
-# this plugin has no PHPCS configuration. The chain's own header lists every input.
+# two jobs only a plugin runs (`floor-lint`, `download-archive`), runs on Linux only except
+# for Pest, leaves mutation testing off, and runs the unit suite as `composer test:unit`.
+# `all-platform-jobs: pest` keeps the unit suite on Linux, macOS and Windows (#20); the chain
+# classifies Pint, Rector and PHPStan as giving the same result on any platform. `phpcs` stays
+# off: this plugin has no PHPCS configuration. The chain's own header lists every input.
 #
 # The last job, `CI`, is the one check a ruleset requires from this workflow. It `needs:` the
 # call, runs `if: always()`, and fails unless the call reports `success`: a `skipped` or
@@ -39,6 +41,7 @@ jobs:
     uses: UAMS-Web/uams-ci-workflows/.github/workflows/ci.yml@5523d479fa9cdc1c3bfdd581f3f07f730da93451
     with:
       linux-only: true
+      all-platform-jobs: pest
       mutate: false
       mutate-ignore-paths: includes
       floor-lint: true
