@@ -681,12 +681,8 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
             // Negated, an undated post gets a false key, and the next undated post in the same call collides
             // with it while `$subset_key++` leaves false unchanged, so the loop below never ends. The undated
             // test hangs under that mutant, which can only time out, never be killed.
-            // @pest-mutate-ignore: IfNegated
-            if ($post['date']) {
-                $subset_key = strtotime($post['date']);
-            } else {
-                $subset_key = time();
-            }
+            // @pest-mutate-ignore: TernaryNegated
+            $subset_key = $post['date'] ? strtotime($post['date']) : time();
 
             while (array_key_exists($subset_key, $new_data)) {
                 $subset_key++;
