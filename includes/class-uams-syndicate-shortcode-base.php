@@ -20,6 +20,9 @@ class UAMS_Syndicate_Shortcode_Base
      *
      * @var array
      */
+    // The mutation run reports these initializers as uncovered although the defaults test pins every value:
+    // changing one default fails that test. The run cannot attribute a property initializer to a test.
+    // @pest-mutate-ignore: RemoveArrayItem, EmptyStringToNotEmpty, DecrementInteger, IncrementInteger, FalseToTrue
     public $defaults_atts = [
         'object' => 'json_data',
         'output' => 'json',
@@ -57,6 +60,8 @@ class UAMS_Syndicate_Shortcode_Base
     /**
      * @var string The shortcode name.
      */
+    // Uncovered for the same reason as `$defaults_atts`; the defaults test pins the empty name.
+    // @pest-mutate-ignore: EmptyStringToNotEmpty
     public $shortcode_name = '';
 
     /**

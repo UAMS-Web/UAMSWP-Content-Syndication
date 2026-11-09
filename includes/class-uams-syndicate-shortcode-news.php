@@ -11,6 +11,9 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
     {
         parent::construct();
         add_action('wp_enqueue_scripts', [$this, 'enqueue_syndication_stylesheet']);
+        // ShortcakeTest runs this branch in a separate process, which a coverage run cannot see, so
+        // its mutants read as uncovered; that test pins each hook and asset call.
+        // @pest-mutate-ignore: RemoveArrayItem, RemoveFunctionCall
         if (class_exists('UAMS_Shortcakes')) {
             add_action('admin_init', [$this, 'build_shortcake']);
             add_editor_style(plugins_url('/css/uams-syndication-admin.css', __DIR__));
@@ -187,7 +190,8 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
         }
         if ($atts['count']) {
             // At exactly 100 both branches normalize to the same request count.
-            $count = (absint($atts['count']) > 100) // @pest-mutate-ignore: GreaterToGreaterOrEqual, DecrementInteger
+            // @pest-mutate-ignore: GreaterToGreaterOrEqual, DecrementInteger
+            $count = (absint($atts['count']) > 100)
                 ? 100
                 : $atts['count'];
             $request_url = add_query_arg([
@@ -251,13 +255,15 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
                 }
             }
             // This legacy assignment is never read; retain it without mutating its value.
-            $local_shortcodes['host'] = get_site()->domain.get_site()->path; // @pest-mutate-ignore: ConcatRemoveLeft, ConcatRemoveRight, ConcatSwitchSides
+            // @pest-mutate-ignore: ConcatRemoveLeft, ConcatRemoveRight, ConcatSwitchSides
+            $local_shortcodes['host'] = get_site()->domain.get_site()->path;
             $local_atts['count'] = $atts['local_count'];
             $local_url = $this->get_request_url($local_atts);
             $request = $this->build_initial_request($local_url, $local_atts);
             $request_url = $this->build_taxonomy_filters($local_atts, $request['url']);
             // Keep the returned cap mutable, ignoring only the equivalent boundary.
-            $local_count = (absint($local_atts['count']) > 100) // @pest-mutate-ignore: GreaterToGreaterOrEqual, DecrementInteger
+            // @pest-mutate-ignore: GreaterToGreaterOrEqual, DecrementInteger
+            $local_count = (absint($local_atts['count']) > 100)
                 ? 100
                 : $local_atts['count'];
             $request_url = add_query_arg([
@@ -672,11 +678,11 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
              */
             $subset = apply_filters('uams_content_syndication_host_data', $subset, $post, $atts);
 
-            if ($post['date']) {
-                $subset_key = strtotime($post['date']);
-            } else {
-                $subset_key = time();
-            }
+            // Negated, an undated post gets a false key, and the next undated post in the same call collides
+            // with it while `$subset_key++` leaves false unchanged, so the loop below never ends. The undated
+            // test hangs under that mutant, which can only time out, never be killed.
+            // @pest-mutate-ignore: TernaryNegated
+            $subset_key = $post['date'] ? strtotime($post['date']) : time();
 
             while (array_key_exists($subset_key, $new_data)) {
                 $subset_key++;
