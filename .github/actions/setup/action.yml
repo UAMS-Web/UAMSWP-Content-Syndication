@@ -1,5 +1,5 @@
 name: Set up PHP and Composer
-description: Install PHP (8.4 by default), restore the Composer cache, and install the locked dependencies. Run after actions/checkout.
+description: Install PHP (8.4 by default), restore the Composer cache, and install the locked root and Integration dependencies. Run after actions/checkout.
 
 inputs:
   php-version:
@@ -26,9 +26,16 @@ runs:
       uses: actions/cache@v6
       with:
         path: ${{ steps.composer-cache.outputs.dir }}
-        key: composer-${{ runner.os }}-php${{ inputs.php-version }}-${{ hashFiles('composer.lock') }}
+        key: composer-${{ runner.os }}-php${{ inputs.php-version }}-${{ hashFiles('composer.lock', 'tests/Integration/composer.lock') }}
         restore-keys: composer-${{ runner.os }}-
 
     - name: Install Composer dependencies
       shell: bash
       run: composer install --no-interaction --no-progress --prefer-dist
+
+    # The Integration suite's isolated lock (`composer setup:integration`). PHPStan's
+    # `scanDirectories` read WordPress' test classes from it, and the unit suite's
+    # integration-bootstrap checks load it, so every chain job installs it.
+    - name: Install Integration suite dependencies
+      shell: bash
+      run: composer install --working-dir=tests/Integration --no-interaction --no-progress --prefer-dist

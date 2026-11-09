@@ -59,7 +59,7 @@ parameters:
             - includes/_unused
             # The Integration suite's own Composer setup (the tests skill): its vendor/
             # sits inside tests, and PHPStan would otherwise analyze PHPUnit 9 and its
-            # dependencies as this repository's code.
+            # dependencies as this repository's code. It is absent in a unit-only clone.
             - tests/Integration/vendor (?)
 
     # The Integration suite's own Composer setup (the tests skill): its vendor/
@@ -76,15 +76,11 @@ parameters:
     # core's runtime surface and stops there: `WP_UnitTestCase`, the factories
     # and `tests_add_filter()` ship with WordPress' test suite, not with
     # WordPress, and `WP_UnitTestCase` extends the polyfills' TestCase.
-    # Uncomment when the tests run on wp-phpunit, or the Integration suite
-    # analyzes as a pile of undefined classes. The paths are the Integration
-    # suite's own Composer setup; a repository that still installs wp-phpunit at
-    # the root names `vendor/...` instead. They must exist, so PHPStan needs
-    # `composer setup:integration` to have run: without it, PHPStan 2.3.0 stops
-    # with "Scanned directory ... does not exist." (`(?)` does not apply here).
-    # scanDirectories:
-    #     - tests/Integration/vendor/wp-phpunit/wp-phpunit/includes
-    #     - tests/Integration/vendor/yoast/phpunit-polyfills/src
+    # These paths belong to the Integration suite's isolated locked setup.
+    # Run `composer setup:integration` before analysis, including on CI.
+    scanDirectories:
+        - tests/Integration/vendor/wp-phpunit/wp-phpunit/includes
+        - tests/Integration/vendor/yoast/phpunit-polyfills/src
 
     # WP-CLI: uncomment after `composer require --dev php-stubs/wp-cli-stubs`.
     # Paths are relative to this neon file (repository root). wordpress-stubs

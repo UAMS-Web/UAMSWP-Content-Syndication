@@ -42,18 +42,31 @@ Coding agents follow the same path. Their instructions are in [`AGENTS.md`](AGEN
 
 ## Running the tests
 
-The suite is Pest 5 with WordPress functions mocked by Brain Monkey, so it needs PHP 8.4 and Composer and nothing else: no database and no WordPress install. The Composer dependencies are development-only and are not part of the plugin download.
+The unit suite is Pest 5 with WordPress functions mocked by Brain Monkey. It needs PHP 8.4.27 and Composer, with no database or WordPress install. The Composer dependencies are development-only and are not part of the plugin download.
 
 ```sh
 composer install
+composer setup:integration
 composer test
 ```
 
-Run it before opening a pull request. Test files live in `tests/Unit` and are named `*Test.php`; a file named otherwise is not picked up.
+Test files live in `tests/Unit` and are named `*Test.php`; a file named otherwise is not picked up. `composer test` remains the unit-only entry point. Its integration-bootstrap safety checks need the isolated Composer dependencies but do not connect to a database or install WordPress. The optional Shortcake-presence test runs in an isolated PHP process so its class alias cannot affect other cases. `composer test:coverage` measures the unit layer with PCOV or Xdebug, and `composer mutate` mutates active first-party PHP. A mutation score is not a pass until uncovered mutants and survivors have been individually dispositioned.
+
+The mutation command names each unit test file explicitly. With the locked Patchwork and Pest mutation stream wrappers, directory discovery inside mutant children fails on a directory-handle type error, which Pest incorrectly counts as a kill. Explicit file arguments avoid that failure; update the command when adding a unit test file. Composer's default five-minute cutoff is disabled for this script because a full run exceeds it; supply a deliberate wall-time budget when running the full population. Property-default mutants and hooks covered only in an isolated PHPUnit child lack test mappings and must be replayed explicitly rather than marked equivalent. A raw mutation score or successful exit alone is not sufficient evidence.
+
+The integration suite runs separately on PHPUnit 9.6 against a real disposable WordPress database. Install its isolated lock before running integration tests or PHPStan:
+
+```sh
+composer setup:integration
+```
+
+Follow [`tests/Integration/README.md`](tests/Integration/README.md) for the matched WordPress 6.8.3 fixture, database safety requirements, and serial single-site and multisite commands. `composer test:integration` runs that separate suite after its environment is configured. The fixture version does not establish any deployed site's version.
+
+Coverage and mutation explicitly exclude the six retained files in `includes/_unused`. They are unregistered retired implementations, not supported runtime behavior. The population is the plugin entry point, `includes/content-syndicate.php`, and the active base and News shortcode classes. This decision does not delete runtime files or change the download.
 
 ## Running the code-quality checks
 
-Rector, PHPStan and Pint run from the same `composer install`, in this order, and each must pass before a pull request:
+Rector, PHPStan and Pint run from the root Composer setup, in this order, and each must pass before pushing. PHPStan also needs `composer setup:integration` for the WordPress test classes:
 
 ```sh
 composer test:refactor
@@ -65,12 +78,12 @@ composer test:pint
 
 ## Remote checks
 
-The `CI` workflow runs on every pull request and push to `master`. It calls the shared chain in `UAMS-Web/uams-ci-workflows`, which checks the synced files and that `composer.lock` matches `composer.json`, installs the locked dependencies, and runs Pint, Rector, PHPStan, the PHP 8.2 floor lint, the download archive check and the Pest unit suite (`composer test:unit`). Pest runs on Linux, macOS and Windows; the other jobs run on Linux. The chain installs the newest PHP 8.4 release, and `config.platform.php` in `composer.json` resolves the dependencies for PHP 8.4.27.
+The `CI` workflow runs on every pull request and push to `master`. It calls the shared chain in `UAMS-Web/uams-ci-workflows`, which checks the synced files and that `composer.lock` matches `composer.json`, installs both locked dependency sets, and runs Pint, Rector, PHPStan, the PHP 8.2 floor lint, the download archive check and the Pest unit suite (`composer test:unit`). Pest runs on Linux, macOS and Windows; the other chain jobs run on Linux. The chain installs the newest PHP 8.4 release, and `config.platform.php` in `composer.json` resolves the dependencies for PHP 8.4.27. A separate Linux job beside the chain, `WordPress integration`, runs the WordPress 6.8.3 integration fixture on PHP 8.4.27 against disposable MariaDB 10.11.19, single-site followed by multisite against one isolated database.
 
-The aggregate `CI` check fails unless the chain succeeds, including every operating-system leg; a skipped or cancelled chain does not count as passing. `master` requires `CI`, `Attribution footer` and `Closing keywords`. The chain does not yet run mutation testing or WordPress integration tests.
+The aggregate `CI` check fails unless the chain and the integration job both succeed, including every operating-system leg; a skipped or cancelled job does not count as passing. `master` requires `CI`, `Attribution footer` and `Closing keywords`. Full mutation validation remains a deliberate local run rather than a remote CI job.
 
 Run the local checks before pushing, then open the pull request as a draft. Mark it ready only after every remote check on its current head succeeds.
 
 ## The PHP floor
 
-The plugin supports PHP 8.2 and later (`Requires PHP` in the plugin header and `require.php` in `composer.json`). Development, the tools and the suite run on PHP 8.4, which accepts syntax that 8.2 rejects, so the `Floor lint (PHP 8.2)` check parses every PHP file in the plugin download with PHP 8.2. To check locally, run `php -l` on each file with a PHP 8.2 binary. A future integration suite on PHPUnit 9.6 installs on its own under `tests/Integration/`, and its `vendor/` is left out of Rector and PHPStan.
+The plugin supports PHP 8.2 and later (`Requires PHP` in the plugin header and `require.php` in `composer.json`). Development, the tools and the suite run on PHP 8.4, which accepts syntax that 8.2 rejects, so the `Floor lint (PHP 8.2)` check parses every PHP file in the plugin download with PHP 8.2. To check locally, run `php -l` on each file with a PHP 8.2 binary. The integration suite on PHPUnit 9.6 installs on its own under `tests/Integration/`, and its `vendor/` is left out of Rector and PHPStan.
