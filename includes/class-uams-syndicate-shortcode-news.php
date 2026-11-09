@@ -11,6 +11,9 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
     {
         parent::construct();
         add_action('wp_enqueue_scripts', [$this, 'enqueue_syndication_stylesheet']);
+        // ShortcakeTest runs this branch in a separate process, which a coverage run cannot see, so
+        // its mutants read as uncovered; that test pins each hook and asset call.
+        // @pest-mutate-ignore: RemoveArrayItem, RemoveFunctionCall
         if (class_exists('UAMS_Shortcakes')) {
             add_action('admin_init', [$this, 'build_shortcake']);
             add_editor_style(plugins_url('/css/uams-syndication-admin.css', __DIR__));
@@ -675,6 +678,9 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
              */
             $subset = apply_filters('uams_content_syndication_host_data', $subset, $post, $atts);
 
+            // Negating this condition leaves an undated post with a false key that the loop below never
+            // advances past, so that mutant can only time out, never be killed.
+            // @pest-mutate-ignore: IfNegated
             if ($post['date']) {
                 $subset_key = strtotime($post['date']);
             } else {
