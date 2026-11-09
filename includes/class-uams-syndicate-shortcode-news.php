@@ -678,9 +678,6 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
              */
             $subset = apply_filters('uams_content_syndication_host_data', $subset, $post, $atts);
 
-            // Negating this condition leaves an undated post with a false key that the loop below never
-            // advances past, so that mutant can only time out, never be killed.
-            // @pest-mutate-ignore: IfNegated
             if ($post['date']) {
                 $subset_key = strtotime($post['date']);
             } else {
