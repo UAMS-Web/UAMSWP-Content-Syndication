@@ -65,9 +65,8 @@ beforeEach(function (): void {
     when('get_home_url')->justReturn('https://local.example');
     when('is_multisite')->justReturn(false);
     when('absint')->alias(fn (mixed $value): int => abs((int) $value));
-    when('wp_json_encode')->alias(fn (mixed $value): string => json_encode($value, JSON_THROW_ON_ERROR));
+    when('wp_json_encode')->alias(fn (mixed $value, int $flags = 0): string => json_encode($value, $flags | JSON_THROW_ON_ERROR));
     when('wp_kses_post')->returnArg();
-    when('do_shortcode')->alias(fn (string $value): string => 'expanded:'.$value);
     when('add_query_arg')->alias(function (array $args, string $url): string {
         // Preserve query replacement semantics for the repeated headline field.
         $parts = parse_url($url);
@@ -76,6 +75,16 @@ beforeEach(function (): void {
         return strtok($url, '?').'?'.http_build_query(array_replace($query, $args));
     });
     when('wp_cache_get')->justReturn([]);
+
+    // The remote fixture host is outside the default allowlist, so admit it the way a
+    // site would: through the filter. Local dispatch records each user switch.
+    expectApplied('uamswp_content_syndicate_allowed_hosts')
+        ->andReturnUsing(fn (array $domains): array => [...$domains, 'remote.example']);
+    $this->userSwitches = [];
+    when('get_current_user_id')->justReturn(5);
+    when('wp_set_current_user')->alias(function (int $id): void {
+        $this->userSwitches[] = $id;
+    });
 
     $this->newsEditorStyles = [];
     when('plugins_url')->returnArg();
@@ -329,7 +338,7 @@ it('renders each output format from cached normalized data with sorting and offs
     // Render through the public shortcode dispatcher, not its private renderer.
     $html = $this->news->display_shortcode($this->newsAtts + ['output' => $output, 'count' => 1, 'offset' => 1, 'object' => 'newsFixture', 'date_format' => 'Y/m/d']);
     if ($output === 'json') {
-        expect($html)->toBe('<!-- UAMSWP Output JSON --><script>var newsFixture = '.json_encode([$row, $older], JSON_THROW_ON_ERROR).';</script>');
+        expect($html)->toBe('<!-- UAMSWP Output JSON --><script>var newsFixture = '.json_encode([$row, $older], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_THROW_ON_ERROR).';</script>');
     } elseif ($output === 'unknown') {
         expect($html)->toBe('');
     } else {
@@ -340,7 +349,7 @@ it('renders each output format from cached normalized data with sorting and offs
         } elseif ($output === 'cards') {
             expect($html)->toContain('https://images.example/news.jpg', '&lt;i&gt;Image caption&lt;/i&gt;', '2026-04-05T12:14:16');
         } elseif ($output === 'full') {
-            expect($html)->toContain('expanded:<article>Expanded content</article>', '<span class="wp-caption-text"><i>Image caption</i></span>', '<h2 itemprop="headline">Older entry</h2>', '<span itemprop="name">Distinct author</span>', '<span class="content-item-byline-date">2026/01/01</span>');
+            expect($html)->toContain('<article>Expanded content</article>', '<span class="wp-caption-text"><i>Image caption</i></span>', '<h2 itemprop="headline">Older entry</h2>', '<span itemprop="name">Distinct author</span>', '<span class="content-item-byline-date">2026/01/01</span>');
         }
     }
 })->with(['json', 'headlines', 'excerpts', 'cards', 'full', 'unknown']);
@@ -361,7 +370,7 @@ it('renders explicit media and content fallbacks without omitted fixture propert
     if ($output === 'cards') {
         expect($html)->toContain('http://via.placeholder.com/560x350?text=Not%20Available');
     } elseif ($output === 'full') {
-        expect($html)->toContain('http://www.uams.edu/_images/blank.gif', 'expanded:<p>Ordinary content</p>')
+        expect($html)->toContain('http://www.uams.edu/_images/blank.gif', '<p>Ordinary content</p>')
             ->not->toContain('class="content-item-byline-author"')
             ->not->toContain('wp-caption-text')
             ->toMatch('/blank\.gif"\/>\s*<\/div>/');
@@ -473,7 +482,7 @@ it('currently preserves the remote row on a local merge timestamp collision', fu
  */
 it('uses local attribute overrides and a bounded count in the merged cache key', function (int $count, int $requested): void {
     // Make prefixed overrides observable without replacing WordPress REST classes.
-    $this->news->local_extended_atts = ['local_host' => 'https://local.example', 'local_query' => 'local-stories'];
+    $this->news->local_extended_atts = ['local_host' => 'https://local.example', 'local_query' => 'pages'];
     when('get_site')->justReturn((object) ['domain' => 'unused.example', 'path' => '/unused/']);
     when('wp_cache_get_last_changed')->justReturn('generation-9');
 
@@ -489,7 +498,7 @@ it('uses local attribute overrides and a bounded count in the merged cache key',
     // Assert the full normalized local request identity and cache generation.
     expect($this->news->display_shortcode($this->newsAtts + ['local_count' => $count]))
         ->toBe('<!-- UAMSWP Output JSON --><script>var json_data = [];</script>')
-        ->and($localRead)->toBe([md5('https://local.example/wp-json/wp/v2/local-stories?per_page='.$requested.'&_embed=').':generation-9', 'uamswp-content']);
+        ->and($localRead)->toBe([md5('https://local.example/wp-json/wp/v2/pages?per_page='.$requested.'&_embed=').':generation-9', 'uamswp-content']);
 })->with([[1, 1], [99, 99], [100, 100], [101, 100]]);
 
 /**
@@ -501,7 +510,7 @@ it('bounds remote request counts while retaining the current JSON offset behavio
     // Capture the network URL while returning an empty successful payload.
     $url = '';
     when('wp_cache_get')->justReturn(false);
-    when('wp_remote_get')->alias(function (string $request) use (&$url): array {
+    when('wp_safe_remote_get')->alias(function (string $request) use (&$url): array {
         $url = $request;
 
         return [];
@@ -523,7 +532,7 @@ it('requests all three reduced headline fields and renders the normalized respon
     // Capture a genuine News-built URL at the HTTP boundary.
     $url = '';
     when('wp_cache_get')->justReturn(false);
-    when('wp_remote_get')->alias(function (string $request) use (&$url): array {
+    when('wp_safe_remote_get')->alias(function (string $request) use (&$url): array {
         $url = $request;
 
         return [];
@@ -584,7 +593,7 @@ it('fetches and caches successful remote normalization including invalid JSON', 
     // Capture the actual normalized cache write and render that same data.
     $stored = null;
     when('wp_cache_get')->justReturn(false);
-    when('wp_remote_get')->justReturn(['response' => 'fixture']);
+    when('wp_safe_remote_get')->justReturn(['response' => 'fixture']);
     when('is_wp_error')->justReturn(false);
     when('wp_remote_retrieve_response_code')->justReturn($status);
     when('wp_remote_retrieve_body')->justReturn($body === 'post' ? json_encode([newsRemotePost()], JSON_THROW_ON_ERROR) : $body);
@@ -600,13 +609,13 @@ it('fetches and caches successful remote normalization including invalid JSON', 
         ->and($stored[1])->toHaveCount($expectedCount)
         ->and($stored[2])->toBe('uamswp_news')
         ->and($stored[3])->toBe(600)
-        ->and($html)->toBe('<!-- UAMSWP Output JSON --><script>var json_data = '.json_encode($stored[1], JSON_THROW_ON_ERROR).';</script>');
+        ->and($html)->toBe('<!-- UAMSWP Output JSON --><script>var json_data = '.json_encode($stored[1], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_THROW_ON_ERROR).';</script>');
 })->with([['post', 200, 1], ['invalid{', 200, 0], ['null', 200, 0], ['[]', 500, 0]]);
 
 it('does not cache remote errors or 404 responses', function (bool $error, int $status): void {
     // Keep body retrieval and writes forbidden on unsuccessful fetch branches.
     when('wp_cache_get')->justReturn(false);
-    when('wp_remote_get')->justReturn(['response' => 'fixture']);
+    when('wp_safe_remote_get')->justReturn(['response' => 'fixture']);
     when('is_wp_error')->justReturn($error);
     when('wp_remote_retrieve_response_code')->justReturn($status);
 
@@ -677,4 +686,110 @@ it('advertises the current Shortcake attribute names and numeric boundaries', fu
         ],
         'post_type' => ['post', 'page'],
     ]]);
+});
+
+it('refuses a host outside the allowlist before any request is made', function (): void {
+    Functions\expect('wp_safe_remote_get')->never();
+    Functions\expect('rest_do_request')->never();
+
+    expect($this->news->display_shortcode(['host' => 'https://evil.example']))
+        ->toBe('<!-- uamswp_news ERROR - the host is not an allowed syndication source -->');
+});
+
+it('refuses a query outside the allowed endpoints before any request is made', function (string $query): void {
+    Functions\expect('wp_safe_remote_get')->never();
+
+    expect($this->news->display_shortcode($this->newsAtts + ['query' => $query]))
+        ->toBe('<!-- uamswp_news ERROR - the query is not an allowed REST endpoint -->');
+})->with(['users', '../../wp-admin/admin-ajax.php', 'posts/../users', 'posts?slug=x#fragment', 'posts/abc', '']);
+
+it('requests an allowed query exactly as written', function (string $query): void {
+    // Capture the network URL while returning an empty successful payload.
+    $url = '';
+    when('wp_cache_get')->justReturn(false);
+    when('wp_safe_remote_get')->alias(function (string $request) use (&$url): array {
+        $url = $request;
+
+        return [];
+    });
+    when('is_wp_error')->justReturn(false);
+    when('wp_remote_retrieve_response_code')->justReturn(200);
+    when('wp_remote_retrieve_body')->justReturn('[]');
+    when('wp_cache_set')->justReturn(true);
+
+    $this->news->display_shortcode($this->newsAtts + ['query' => $query]);
+    expect(urldecode($url))->toStartWith('https://remote.example/wp-json/wp/v2/'.$query);
+})->with(['posts', 'pages/12', 'posts?slug=welcome&per_page=2', 'categories?filter[cat]=3']);
+
+it('refuses a merged local host or query outside the allowlists', function (array $extended): void {
+    // Keep the remote side cached so only the merged local request can be refused.
+    $this->news->local_extended_atts = $extended;
+    when('get_site')->justReturn((object) ['domain' => 'local.example', 'path' => '/']);
+    Functions\expect('rest_do_request')->never();
+
+    expect($this->news->display_shortcode($this->newsAtts + ['local_count' => 1]))
+        ->toBe('<!-- uamswp_news ERROR - the local host or query is not allowed -->');
+})->with([
+    'query' => [['local_query' => 'users']],
+    'host' => [['local_host' => 'https://evil.example']],
+]);
+
+it('dispatches local REST requests as an anonymous visitor and restores the viewer', function (): void {
+    // Record each user switch around the real dispatch order.
+    $requests = Mockery::mock('alias:WP_REST_Request');
+    $requests->shouldReceive('from_url')->andReturnUsing(fn (string $url): object => (object) ['fixture_route' => $url]);
+    when('wp_cache_get')->alias(fn (string $key, string $group): array|false => $group === 'uamswp_news' ? [] : false);
+    when('wp_cache_get_last_changed')->justReturn('generation-anon');
+    when('wp_cache_set')->justReturn(true);
+
+    $response = Mockery::mock();
+    $response->data = [];
+    $response->shouldReceive('get_status')->andReturn(200);
+    when('rest_do_request')->alias(function () use ($response): object {
+        $this->userSwitches[] = 'dispatch';
+
+        return $response;
+    });
+
+    // Both the main local request and a merged local request switch to user 0 and back.
+    $this->news->display_shortcode(['host' => 'https://local.example']);
+    expect($this->userSwitches)->toBe([0, 'dispatch', 5]);
+
+    $this->userSwitches = [];
+    when('get_site')->justReturn((object) ['domain' => 'local.example', 'path' => '/']);
+    $this->news->display_shortcode($this->newsAtts + ['local_count' => 1]);
+    expect($this->userSwitches)->toBe([0, 'dispatch', 5]);
+});
+
+it('emits the JSON object name only as a JavaScript identifier', function (string $object, string $expected): void {
+    expect($this->news->display_shortcode($this->newsAtts + ['object' => $object]))
+        ->toBe('<!-- UAMSWP Output JSON --><script>var '.$expected.' = [];</script>');
+})->with([
+    'identifier' => ['news_$1', 'news_$1'],
+    'code is stripped' => ['x;alert(1)//', 'xalert1'],
+    'leading digit' => ['1abc', 'json_data'],
+    'nothing left' => ['-;', 'json_data'],
+    'empty' => ['', 'json_data'],
+]);
+
+it('encodes HTML-significant characters inside the JSON script', function (): void {
+    when('wp_cache_get')->justReturn([20 => (object) ['title' => "</script><script>'x'&\"y\""]]);
+
+    $html = $this->news->display_shortcode($this->newsAtts);
+    expect($html)->toBe('<!-- UAMSWP Output JSON --><script>var json_data = {"20":{"title":"\\u003C\\/script\\u003E\\u003Cscript\\u003E\\u0027x\\u0027\\u0026\\u0022y\\u0022"}};</script>')
+        ->and(substr_count($html, '</script>'))->toBe(1);
+});
+
+it('escapes remote media text in the full renderer without expanding shortcodes', function (): void {
+    // Make the sanitizer observable; do_shortcode is left undefined so a call would fail.
+    when('wp_kses_post')->alias(fn (string $value): string => 'kses:'.$value);
+    $row = array_values($this->news->process_remote_posts([newsRemotePost()], ['output' => 'full']))[0];
+    $row->imagealt = 'Quote " alt';
+    $row->imagecaption = '<i>cap</i>';
+    $row->fullcontent = '[uamswp_news host="https://evil.example"]';
+
+    when('wp_cache_get')->justReturn([20 => $row]);
+
+    expect($this->news->display_shortcode($this->newsAtts + ['output' => 'full']))
+        ->toContain('alt="Quote &quot; alt"', '<span class="wp-caption-text">kses:<i>cap</i></span>', 'kses:[uamswp_news host="https://evil.example"]');
 });

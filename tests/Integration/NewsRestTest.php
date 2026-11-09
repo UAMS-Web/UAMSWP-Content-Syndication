@@ -70,6 +70,29 @@ final class NewsRestTest extends IntegrationTestCase
     }
 
     /**
+     * Pin anonymous dispatch: a logged-in viewer sees no more than a visitor would.
+     */
+    public function test_local_rest_dispatches_anonymously_for_a_logged_in_viewer(): void
+    {
+        // View as an administrator, who could read the draft through REST directly.
+        self::factory()->post->create(['post_title' => 'Public fixture', 'post_status' => 'publish']);
+        self::factory()->post->create(['post_title' => 'Private draft', 'post_status' => 'draft']);
+        $admin = self::factory()->user->create(['role' => 'administrator']);
+        wp_set_current_user($admin);
+        $this->assertTrue(current_user_can('edit_posts'));
+
+        // A draft-status query is refused for a visitor, so it renders nothing for the
+        // administrator too, while a public collection still renders.
+        $drafts = do_shortcode('[uamswp_news site="'.home_url('/').'" query="posts?status=publish,draft"]');
+        $this->assertStringContainsString(' = [];', $drafts);
+        $this->assertStringNotContainsString('Private draft', $drafts);
+        $public = do_shortcode('[uamswp_news site="'.home_url('/').'"]');
+        $this->assertStringContainsString('Public fixture', $public);
+        $this->assertStringNotContainsString('Private draft', $public);
+        $this->assertSame($admin, get_current_user_id());
+    }
+
+    /**
      * Pin the global-post leak caused by dispatching a local REST collection.
      */
     public function test_local_rest_currently_replaces_the_callers_global_post(): void
@@ -161,7 +184,7 @@ final class NewsRestTest extends IntegrationTestCase
 
             return $response;
         });
-        $shortcode = '[uamswp_news site="'.home_url('/').'" query="missing-fixture-route"]';
+        $shortcode = '[uamswp_news site="'.home_url('/').'" query="posts/999999999"]';
 
         // Verify a real 404 produces empty output but never a successful cache hit.
         $this->assertStringContainsString(' = [];', do_shortcode($shortcode));

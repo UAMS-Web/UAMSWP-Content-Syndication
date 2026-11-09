@@ -23,6 +23,9 @@ abstract class IntegrationTestCase extends WP_UnitTestCase
         // Reset WordPress state before selecting the fixture permalink mode.
         parent::set_up();
         $this->set_permalink_structure('/%postname%/');
+
+        // Admit the remote fixture host the way a site admits a partner domain.
+        add_filter('uamswp_content_syndicate_allowed_hosts', static fn (array $domains): array => [...$domains, 'remote.example']);
     }
 
     /**

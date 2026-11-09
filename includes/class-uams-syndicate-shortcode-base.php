@@ -230,6 +230,75 @@ class UAMS_Syndicate_Shortcode_Base
     }
 
     /**
+     * Determine whether a host may be used as a syndication source.
+     *
+     * The `host` and `site` attributes are editor input, so a request is only made to
+     * this site, a site in this network, or a domain on the allowlist. An allowlisted
+     * domain also allows its subdomains.
+     *
+     * @param  string  $host  Hostname read from the `site` or `host` attribute.
+     * @return bool True if content may be requested from the host.
+     */
+    public function is_allowed_host($host): bool
+    {
+        $host = strtolower(rtrim((string) $host, '.'));
+        if ($host === '') {
+            return false;
+        }
+
+        $home_host = wp_parse_url(get_home_url(), PHP_URL_HOST);
+        if (is_string($home_host) && strtolower($home_host) === $host) {
+            return true;
+        }
+
+        if (is_multisite() && get_sites(['domain' => $host, 'number' => 1, 'fields' => 'ids']) !== []) {
+            return true;
+        }
+
+        /**
+         * Filter the domains content may be syndicated from.
+         *
+         * @param  array  $domains  Domains allowed as syndication sources. Each entry also allows its subdomains.
+         */
+        $domains = apply_filters('uamswp_content_syndicate_allowed_hosts', ['uams.edu', 'uamshealth.com']);
+
+        foreach ($domains as $domain) {
+            $domain = strtolower(trim((string) $domain, '. '));
+            if ($domain !== '' && ($host === $domain || str_ends_with($host, '.'.$domain))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Determine whether the `query` attribute names a REST endpoint content may be read from.
+     *
+     * The value is appended to the `wp-json/wp/v2/` path as given, so it is held to an
+     * allowlisted collection, an optional numeric item and an optional query string:
+     * `posts`, `pages/12` or `posts?slug=welcome`.
+     *
+     * @param  string  $query  Value of the `query` attribute.
+     * @return bool True if the endpoint may be requested.
+     */
+    public function is_allowed_query($query): bool
+    {
+        if (! is_string($query) || preg_match('#^([a-z0-9_-]+)(/[0-9]+)?(\?[A-Za-z0-9_\[\]%.,:=&+-]*)?$#', $query, $matches) !== 1) {
+            return false;
+        }
+
+        /**
+         * Filter the REST collections, relative to `wp-json/wp/v2/`, the `query` attribute may name.
+         *
+         * @param  array  $collections  Collection names allowed as the endpoint of a request.
+         */
+        $collections = apply_filters('uamswp_content_syndicate_allowed_queries', ['posts', 'pages', 'categories', 'tags']);
+
+        return in_array($matches[1], $collections, true);
+    }
+
+    /**
      * Add proper filters to a given URL to handle lookup by University taxonomies and
      * built in WordPress taxonomies.
      *

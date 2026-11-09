@@ -255,3 +255,63 @@ it('round trips signed integer lists across deterministic generated inputs', fun
         expect($this->shortcode->sanitized_ids(implode(',', $input)))->toBe(implode(',', $expected));
     }
 });
+
+it('allows this site, the default domains and their subdomains as syndication hosts', function (string $host, bool $allowed): void {
+    when('get_home_url')->justReturn('http://dev.example.org/blog');
+
+    expect($this->shortcode->is_allowed_host($host))->toBe($allowed);
+})->with([
+    'home host' => ['dev.example.org', true],
+    'home host case and trailing dot' => ['DEV.example.org.', true],
+    'default domain' => ['uamshealth.com', true],
+    'default subdomain' => ['news.uams.edu', true],
+    'lookalike suffix' => ['notuams.edu', false],
+    'default domain as a prefix' => ['uams.edu.evil.example', false],
+    'other host' => ['example.org', false],
+    'empty' => ['', false],
+]);
+
+it('allows a domain added through the host filter', function (): void {
+    when('get_home_url')->justReturn('http://dev.example.org');
+    expectApplied('uamswp_content_syndicate_allowed_hosts')->once()
+        ->with(['uams.edu', 'uamshealth.com'])
+        ->andReturn(['partner.example']);
+
+    expect($this->shortcode->is_allowed_host('cdn.partner.example'))->toBeTrue();
+});
+
+it('allows a host that is a site in the network', function (bool $found): void {
+    when('get_home_url')->justReturn('http://dev.example.org');
+    when('is_multisite')->justReturn(true);
+    Functions\expect('get_sites')->once()
+        ->with(['domain' => 'sibling.example', 'number' => 1, 'fields' => 'ids'])
+        ->andReturn($found ? [37] : []);
+
+    expect($this->shortcode->is_allowed_host('sibling.example'))->toBe($found);
+})->with([true, false]);
+
+it('allows only the listed collections with an optional item id and query string', function (mixed $query, bool $allowed): void {
+    expect($this->shortcode->is_allowed_query($query))->toBe($allowed);
+})->with([
+    'collection' => ['posts', true],
+    'item' => ['pages/12', true],
+    'query string' => ['posts?slug=welcome&per_page=2&filter[cat]=3', true],
+    'unlisted collection' => ['users', false],
+    'traversal' => ['posts/../users', false],
+    'nested route' => ['posts/12/revisions', false],
+    'absolute path' => ['/posts', false],
+    'fragment' => ['posts?a=1#b', false],
+    'space' => ['posts ?a=1', false],
+    'upper case' => ['Posts', false],
+    'empty' => ['', false],
+    'not a string' => [null, false],
+]);
+
+it('allows a collection added through the query filter', function (): void {
+    expectApplied('uamswp_content_syndicate_allowed_queries')->twice()
+        ->with(['posts', 'pages', 'categories', 'tags'])
+        ->andReturn(['people']);
+
+    expect($this->shortcode->is_allowed_query('people?per_page=5'))->toBeTrue()
+        ->and($this->shortcode->is_allowed_query('posts'))->toBeFalse();
+});

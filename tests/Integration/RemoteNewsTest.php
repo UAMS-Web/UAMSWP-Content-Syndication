@@ -60,6 +60,37 @@ final class RemoteNewsTest extends IntegrationTestCase
     }
 
     /**
+     * Pin the host allowlist: an unlisted host is never requested.
+     */
+    public function test_hosts_outside_the_allowlist_are_not_requested(): void
+    {
+        // Observe the HTTP API so any request to the unlisted host is visible.
+        $requests = [];
+        add_filter('pre_http_request', static function (
+            mixed $preempt,
+            array $args,
+            string $url
+        ) use (&$requests): mixed {
+            $requests[] = $url;
+
+            return $preempt;
+        }, 10, 3);
+
+        // Verify the error comment and that the allowlisted default host still passes.
+        $this->assertSame(
+            '<!-- uamswp_news ERROR - the host is not an allowed syndication source -->',
+            do_shortcode('[uamswp_news site="https://unlisted.example/"]')
+        );
+        $this->assertSame(
+            '<!-- uamswp_news ERROR - the host is not an allowed syndication source -->',
+            do_shortcode('[uamswp_news host="uams.edu.attacker.example"]')
+        );
+        $this->assertSame([], $requests);
+        do_shortcode('[uamswp_news host="news.uams.edu"]');
+        $this->assertSame(['https://news.uams.edu/wp-json/wp/v2/posts?_embed'], $requests);
+    }
+
+    /**
      * Pin empty remote collections as cacheable responses.
      */
     public function test_empty_remote_response_is_cached(): void

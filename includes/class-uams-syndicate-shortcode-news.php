@@ -144,14 +144,16 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
      *              - excerpts       Display only excerpt information in an unordered list.
      *              - cards       	 Display information in a card format.
      *              - full           Display full content for each item.
-     * @type string $host                     The hostname to pull items from. Defaults to uamshealth.com.
+     * @type string $host                     The hostname to pull items from. Defaults to uamshealth.com. The host
+     *              must be this site, a site in this network, or on the `uamswp_content_syndicate_allowed_hosts` list.
      * @type string $site                     Overrides setting for host. Hostname and path to pull items from.
      * @type string $site_category_slug       The slug of a Site Category. Defaults to empty.
      * @type string $advanced_cat       	  The ids of a Site Category, including exclusions (-id). Defaults to empty.
      * @type string $tag                      The slug of a tag. Defaults to empty.
      * @type string $id                       The id of post. Defaults to empty.
      * @type string $style                    Adds additional styles to the wrapper. Defaults to empty.
-     * @type string $query                    Allows for a custom WP-API query. Defaults as "posts". Any
+     * @type string $query                    Allows for a custom WP-API query. Defaults as "posts". A collection on
+     *              the `uamswp_content_syndicate_allowed_queries` list, with an optional item id and query string.
      * @type int $local_count              The number of local items to merge with the remote results.
      * @type int $count                    The number of items to pull from a feed. Defaults to the
      *           posts_per_page setting of the remote site.
@@ -171,6 +173,12 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
         $site_url = $this->get_request_url($atts);
         if (! $site_url) {
             return '<!-- uamswp_news ERROR - an empty host was supplied -->';
+        }
+        if (! $this->is_allowed_host($site_url['host'])) {
+            return '<!-- uamswp_news ERROR - the host is not an allowed syndication source -->';
+        }
+        if (! $this->is_allowed_query($atts['query'])) {
+            return '<!-- uamswp_news ERROR - the query is not an allowed REST endpoint -->';
         }
 
         // Retrieve existing content from cache if available.
@@ -216,16 +224,21 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
             $new_data = wp_cache_get($cache_key, 'uamswp-content');
             if (! is_array($new_data)) {
                 $request = WP_REST_Request::from_url($request_url);
+                // The result is cached and served to every visitor, so dispatch as an
+                // anonymous one rather than as the user viewing the page.
+                $viewer = get_current_user_id();
+                wp_set_current_user(0);
                 $response = rest_do_request($request);
                 if ($response->get_status() === 200) {
                     $new_data = $this->process_local_posts($response->data, $atts);
                 }
+                wp_set_current_user($viewer);
                 wp_cache_set($cache_key, $new_data, 'uamswp-content');
             }
         } else {
             $new_data = $this->get_content_cache($atts, 'uamswp_news');
             if (! is_array($new_data)) {
-                $response = wp_remote_get($request_url);
+                $response = wp_safe_remote_get($request_url);
                 if (! is_wp_error($response) && wp_remote_retrieve_response_code($response) !== 404) {
                     $data = wp_remote_retrieve_body($response);
                     $data = json_decode($data);
@@ -254,6 +267,10 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
             $local_shortcodes['host'] = get_site()->domain.get_site()->path; // @pest-mutate-ignore: ConcatRemoveLeft, ConcatRemoveRight, ConcatSwitchSides
             $local_atts['count'] = $atts['local_count'];
             $local_url = $this->get_request_url($local_atts);
+            // A merged request is held to the same allowlists as the main one.
+            if (! $local_url || ! $this->is_allowed_host($local_url['host']) || ! $this->is_allowed_query($local_atts['query'])) {
+                return '<!-- uamswp_news ERROR - the local host or query is not allowed -->';
+            }
             $request = $this->build_initial_request($local_url, $local_atts);
             $request_url = $this->build_taxonomy_filters($local_atts, $request['url']);
             // Keep the returned cap mutable, ignoring only the equivalent boundary.
@@ -269,11 +286,15 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
             $local_data = wp_cache_get($cache_key, 'uamswp-content');
             if (! is_array($local_data)) {
                 $request = WP_REST_Request::from_url($request_url);
+                // Dispatch as an anonymous visitor, as for the main local request above.
+                $viewer = get_current_user_id();
+                wp_set_current_user(0);
                 $response = rest_do_request($request);
                 $local_data = [];
                 if ($response->get_status() === 200) {
                     $local_data = $this->process_local_posts($response->data, $atts);
                 }
+                wp_set_current_user($viewer);
                 wp_cache_set($cache_key, $local_data, 'uamswp-content');
             }
             if (is_array($local_data)) {
@@ -316,7 +337,12 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
         if ($atts['output'] === 'json') {
             echo '<!-- UAMSWP Output JSON -->';
             // print_r ($new_data);
-            echo '<script>var '.esc_js($atts['object']).' = '.wp_json_encode($new_data).';</script>';
+            // The object name is emitted as code, so it is held to a JavaScript identifier.
+            $object = preg_replace('/[^A-Za-z0-9_$]/', '', (string) $atts['object']);
+            if ($object === '' || ctype_digit($object[0])) {
+                $object = 'json_data';
+            }
+            echo '<script>var '.$object.' = '.wp_json_encode($new_data, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT).';</script>';
         } elseif ($atts['output'] === 'headlines') {
             ?>
             <!-- UAMSWP Output Headlines -->
@@ -352,7 +378,7 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
                 ?>
 						<li class="uamswp-content-syndication-item" itemscope itemtype="http://schema.org/NewsArticle">
 							<meta itemscope itemprop="mainEntityOfPage"  itemType="https://schema.org/WebPage" itemid="<?php echo esc_url($content->link); ?>"/>
-							<a class="content-item-thumbnail" href="<?php echo esc_url($content->link); ?>" itemprop="image" itemscope itemtype="https://schema.org/ImageObject"><?php if ($content->thumbnail) { ?><img src="<?php echo esc_url($content->thumbnail); ?>" alt="<?php echo esc_html($content->thumbalt); ?>" itemprop="url"><?php } ?></a>
+							<a class="content-item-thumbnail" href="<?php echo esc_url($content->link); ?>" itemprop="image" itemscope itemtype="https://schema.org/ImageObject"><?php if ($content->thumbnail) { ?><img src="<?php echo esc_url($content->thumbnail); ?>" alt="<?php echo esc_attr($content->thumbalt); ?>" itemprop="url"><?php } ?></a>
 							<span class="content-item-title" itemprop="headline"><a href="<?php echo esc_url($content->link); ?>" class="news-link" itemprop="url"><?php echo esc_html($content->title); ?></a></span>
 							<span class="content-item-byline">
 								<span class="content-item-byline-date" itemprop="datePublished" content="<?php echo esc_html(date('c', strtotime($content->date))); ?>"><small><?php echo esc_html(date($atts['date_format'], strtotime($content->date))); ?> | </small></span>
@@ -391,7 +417,7 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
                 ?>
 					    <div class="default-card" itemscope itemtype="http://schema.org/NewsArticle">
 					    	<meta itemscope itemprop="mainEntityOfPage"  itemType="https://schema.org/WebPage" itemid="<?php echo esc_url($content->link); ?>"/>
-					    	<div class="card-image" itemprop="image" itemscope itemtype="https://schema.org/ImageObject"><?php if ($content->image) { ?><img src="<?php echo esc_url($content->image); ?>" alt="<?php echo esc_html($content->imagecaption); ?>" itemprop="url"><?php } else { ?><img src="http://via.placeholder.com/560x350?text=Not%20Available" alt="" itemprop="url"><?php } ?></div>
+					    	<div class="card-image" itemprop="image" itemscope itemtype="https://schema.org/ImageObject"><?php if ($content->image) { ?><img src="<?php echo esc_url($content->image); ?>" alt="<?php echo esc_attr($content->imagecaption); ?>" itemprop="url"><?php } else { ?><img src="http://via.placeholder.com/560x350?text=Not%20Available" alt="" itemprop="url"><?php } ?></div>
 							<div class="card-body">
 					      		<span>
 					      			<h3 itemprop="headline">
@@ -401,7 +427,7 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
 					      			<?php echo wp_kses_post($content->excerpt); ?>
 					      			</span>
 					              	<a href="<?php echo esc_url($content->link); ?>" class="pic-text-more uams-btn btn-sm btn-red" itemprop="url">Read more</a>
-					              	<span class="content-item-byline-author" itemprop="author" itemscope itemtype="http://schema.org/Person"><meta itemprop="name" content="<?php echo esc_html($content->author_name); ?>"/></span>
+					              	<span class="content-item-byline-author" itemprop="author" itemscope itemtype="http://schema.org/Person"><meta itemprop="name" content="<?php echo esc_attr($content->author_name); ?>"/></span>
 					              	<meta itemprop="datePublished" content="<?php echo esc_html(date('c', strtotime($content->date))); ?>"/>
 					              	<meta itemprop="dateModified" content="<?php echo esc_html(date('c', strtotime($content->modified))); ?>"/>
 					            </span>
@@ -439,8 +465,8 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
 						<div class="uamswp-content-syndication-full" itemscope itemtype="http://schema.org/NewsArticle">
 							<meta itemscope itemprop="mainEntityOfPage"  itemType="https://schema.org/WebPage" itemid="<?php echo esc_url($content->link); ?>"/>
 							<div class="content-item-thumbnail" itemprop="image" itemscope itemtype="https://schema.org/ImageObject">
-								<?php if ($content->image) { ?><img src="<?php echo esc_url($content->image); ?>" alt="<?php echo $content->imagealt; ?>"><?php } else { ?><meta itemprop="url" content="http://www.uams.edu/_images/blank.gif"/><?php } ?>
-								<?php echo $content->imagecaption ? '<span class="wp-caption-text">'.$content->imagecaption.'</span>' : ''; ?>
+								<?php if ($content->image) { ?><img src="<?php echo esc_url($content->image); ?>" alt="<?php echo esc_attr($content->imagealt); ?>"><?php } else { ?><meta itemprop="url" content="http://www.uams.edu/_images/blank.gif"/><?php } ?>
+								<?php echo $content->imagecaption ? '<span class="wp-caption-text">'.wp_kses_post($content->imagecaption).'</span>' : ''; ?>
 							</div>
 							<span class="content-item-title"><a href="<?php echo esc_url($content->link); ?>" itemprop="url"><?php echo '<h2 itemprop="headline">'.esc_html($content->title).'</h2>'; ?></a></span>
 							<div class="content-item-byline">
@@ -452,9 +478,9 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
 							<div class="content-item-content" itemprop="articleBody">
 								<?php
                             if ($content->fullcontent) {
-                                echo do_shortcode(wp_kses_post($content->fullcontent));
+                                echo wp_kses_post($content->fullcontent);
                             } else {
-                                echo do_shortcode(wp_kses_post($content->content));
+                                echo wp_kses_post($content->content);
                             }
                 ?>
 								<hr size="1" width="75%"/>
