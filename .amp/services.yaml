@@ -1,0 +1,13 @@
+services:
+  syndication-mariadb:
+    platforms: [linux]
+    port: 3307
+    command: >-
+      /usr/sbin/mariadbd
+      --datadir="$PWD/.amp/state/mariadb"
+      --socket="$PWD/.amp/state/mariadb.sock"
+      --pid-file="$PWD/.amp/state/mariadb.pid"
+      --init-file="$PWD/.amp/state/mariadb-init.sql"
+      --bind-address=127.0.0.1
+      --port="$PORT"
+      --skip-log-bin
