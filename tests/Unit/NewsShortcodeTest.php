@@ -490,6 +490,18 @@ it('currently preserves the remote row on a local merge timestamp collision', fu
         ->toBe('<!-- UAMSWP Output JSON --><script>var json_data = {"30":{"title":"Local newest"},"20":{"title":"Remote wins"}};</script>');
 });
 
+it('leaves out local results when the local host override is empty', function (): void {
+    // An empty local host cannot be turned into a request, so only the remote rows remain.
+    $this->news->local_extended_atts = ['local_host' => 'https://local.example'];
+    $remote = (object) ['title' => 'Remote only'];
+    when('wp_cache_get_last_changed')->justReturn('generation-10');
+    when('wp_cache_get')->alias(fn (string $key, string $group): array => $group === 'uamswp_news' ? [20 => $remote] : []);
+    Functions\expect('rest_do_request')->never();
+
+    expect($this->news->display_shortcode($this->newsAtts + ['local_count' => 2, 'local_host' => '']))
+        ->toBe('<!-- UAMSWP Output JSON --><script>var json_data = {"20":{"title":"Remote only"}};</script>');
+});
+
 /**
  * Local cap equivalents: 3b1584c92448af1f and 7a682d28550d370a. Changing >100
  * to >=100 or >99 only changes which expression supplies 100, and absint()
