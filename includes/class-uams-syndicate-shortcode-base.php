@@ -196,7 +196,7 @@ class UAMS_Syndicate_Shortcode_Base
             ], false);
             if ($local_site) {
                 $local_site_id = $local_site->blog_id;
-                $local_home_url = get_home_url($local_site_id);
+                $local_home_url = get_home_url((int) $local_site_id);
                 $url_scheme = wp_parse_url($local_home_url, PHP_URL_SCHEME);
                 $atts['scheme'] = $url_scheme;
             }
