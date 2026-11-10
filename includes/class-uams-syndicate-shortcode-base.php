@@ -139,7 +139,7 @@ class UAMS_Syndicate_Shortcode_Base
      *
      * @param  array  $atts  List of attributes used for the shortcode.
      * @param  string  $shortcode  Shortcode being displayed.
-     * @return bool|string False if cache is not available or expired. Content if available.
+     * @return mixed False if cache is not available or expired. The stored value if available.
      */
     public function get_content_cache($atts, $shortcode)
     {
@@ -155,7 +155,7 @@ class UAMS_Syndicate_Shortcode_Base
      *
      * @param  array  $atts  List of attributes used for the shortcode.
      * @param  string  $shortcode  Shortcode being displayed.
-     * @param  string  $content  Generated content after processing the shortcode.
+     * @param  mixed  $content  Generated content after processing the shortcode.
      */
     public function set_content_cache($atts, $shortcode, $content): void
     {
