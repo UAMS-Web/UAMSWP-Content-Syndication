@@ -106,14 +106,14 @@ class UAMS_Syndicate_Shortcode_Base
      * Process passed attributes for a shortcode against arrays of base defaults,
      * local defaults, and extended local defaults.
      *
-     * @param  array<string, mixed>  $atts  Attributes passed to a shortcode.
+     * @param  array<mixed>  $atts  Attributes passed to a shortcode.
      * @return array<string, mixed> Fully populated list of attributes expected by the shortcode.
      */
-    public function process_attributes($atts)
+    public function process_attributes($atts): array
     {
-        $defaults = apply_filters('uamswp_content_syndicate_default_atts', $this->defaults_atts);
+        $filtered = apply_filters('uamswp_content_syndicate_default_atts', $this->defaults_atts);
 
-        $defaults = shortcode_atts($defaults, $this->local_default_atts);
+        $defaults = shortcode_atts(is_array($filtered) ? $filtered : $this->defaults_atts, $this->local_default_atts);
         $defaults = array_merge($defaults, $this->local_extended_atts);
 
         $local_defaults = [];
@@ -130,7 +130,9 @@ class UAMS_Syndicate_Shortcode_Base
 
         $defaults = array_merge($defaults, $local_defaults);
 
-        return shortcode_atts($defaults, $atts, $this->shortcode_name);
+        $attributes = shortcode_atts($defaults, $atts, $this->shortcode_name);
+
+        return array_combine(array_map(strval(...), array_keys($attributes)), $attributes);
     }
 
     /**
@@ -180,6 +182,17 @@ class UAMS_Syndicate_Shortcode_Base
         }
 
         return $value;
+    }
+
+    /**
+     * Read a date value as a Unix timestamp.
+     *
+     * @param  mixed  $value  A date string as WordPress returns it.
+     * @return int The timestamp, or zero when the value is not a readable date.
+     */
+    public function timestamp(mixed $value): int
+    {
+        return strtotime($this->to_string($value)) ?: 0;
     }
 
     /**
@@ -305,7 +318,7 @@ class UAMS_Syndicate_Shortcode_Base
     public function build_taxonomy_filters($atts, $request_url)
     {
 
-        $request_url = apply_filters('uamswp_content_syndicate_taxonomy_filters', $request_url, $atts, $request_url);
+        $request_url = $this->to_string(apply_filters('uamswp_content_syndicate_taxonomy_filters', $request_url, $atts, $request_url));
 
         if (! empty($atts['advanced_cat'])) {
             // $terms = $this->sanitized_terms( $atts['university_location_slug'] );

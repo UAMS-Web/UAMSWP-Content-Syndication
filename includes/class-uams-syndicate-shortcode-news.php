@@ -137,8 +137,8 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
      * Process the requested parameters for use with the WordPress JSON API and output
      * the response accordingly.
      *
-     * @param  array<string, mixed>  $atts  {
-     *                                      Attributes passed with the shortcode.
+     * @param  array<mixed>  $atts  {
+     *                              Attributes passed with the shortcode.
      *
      * @type string $object                   The name of the JSON object to use when output is set to json.
      * @type string $output                   The type of output to display.
@@ -294,7 +294,7 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
             $content = $this->generate_shortcode_output($new_data, $atts);
         }
 
-        return apply_filters('uamswp_content_syndicate_news', $content, $atts);
+        return $this->to_string(apply_filters('uamswp_content_syndicate_news', $content, $atts));
 
     }
 
@@ -307,7 +307,7 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
      * @param  array<string, mixed>  $atts  Array of options passed with the shortcode.
      * @return string Content to display for the shortcode.
      */
-    private function generate_shortcode_output(array $new_data, $atts): string|false
+    private function generate_shortcode_output(array $new_data, array $atts): string|false
     {
 
         ob_start();
@@ -329,7 +329,7 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
 
                     continue;
                 }
-                ?><li class="uamswp-content-syndication-item"><a href="<?php echo esc_url($content->link); ?>"><?php echo esc_html($content->title); ?></a></li><?php
+                ?><li class="uamswp-content-syndication-item"><a href="<?php echo esc_url($this->to_string($content->link)); ?>"><?php echo esc_html($this->to_string($content->title)); ?></a></li><?php
             }
             ?>
 				</ul>
@@ -350,15 +350,15 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
                 }
                 ?>
 						<li class="uamswp-content-syndication-item" itemscope itemtype="http://schema.org/NewsArticle">
-							<meta itemscope itemprop="mainEntityOfPage"  itemType="https://schema.org/WebPage" itemid="<?php echo esc_url($content->link); ?>"/>
-							<a class="content-item-thumbnail" href="<?php echo esc_url($content->link); ?>" itemprop="image" itemscope itemtype="https://schema.org/ImageObject"><?php if ($content->thumbnail) { ?><img src="<?php echo esc_url($content->thumbnail); ?>" alt="<?php echo esc_html($content->thumbalt); ?>" itemprop="url"><?php } ?></a>
-							<span class="content-item-title" itemprop="headline"><a href="<?php echo esc_url($content->link); ?>" class="news-link" itemprop="url"><?php echo esc_html($content->title); ?></a></span>
+							<meta itemscope itemprop="mainEntityOfPage"  itemType="https://schema.org/WebPage" itemid="<?php echo esc_url($this->to_string($content->link)); ?>"/>
+							<a class="content-item-thumbnail" href="<?php echo esc_url($this->to_string($content->link)); ?>" itemprop="image" itemscope itemtype="https://schema.org/ImageObject"><?php if ($content->thumbnail) { ?><img src="<?php echo esc_url($this->to_string($content->thumbnail)); ?>" alt="<?php echo esc_html($this->to_string($content->thumbalt)); ?>" itemprop="url"><?php } ?></a>
+							<span class="content-item-title" itemprop="headline"><a href="<?php echo esc_url($this->to_string($content->link)); ?>" class="news-link" itemprop="url"><?php echo esc_html($this->to_string($content->title)); ?></a></span>
 							<span class="content-item-byline">
-								<span class="content-item-byline-date" itemprop="datePublished" content="<?php echo esc_html(date('c', strtotime($content->date))); ?>"><small><?php echo esc_html(date($this->string_att($atts, 'date_format'), strtotime($content->date))); ?> | </small></span>
-								<meta itemprop="dateModified" content="<?php echo esc_html(date('c', strtotime($content->date))); ?>"/>
-								<span class="content-item-byline-author" itemprop="author" itemscope itemtype="http://schema.org/Person"><small itemprop="name"><?php echo esc_html($content->author_name); ?></small></span>
+								<span class="content-item-byline-date" itemprop="datePublished" content="<?php echo esc_html(date('c', $this->timestamp($content->date))); ?>"><small><?php echo esc_html(date($this->string_att($atts, 'date_format'), $this->timestamp($content->date))); ?> | </small></span>
+								<meta itemprop="dateModified" content="<?php echo esc_html(date('c', $this->timestamp($content->date))); ?>"/>
+								<span class="content-item-byline-author" itemprop="author" itemscope itemtype="http://schema.org/Person"><small itemprop="name"><?php echo esc_html($this->to_string($content->author_name)); ?></small></span>
 							</span>
-							<span class="content-item-excerpt" itemprop="articleBody"><?php echo wp_kses_post($content->excerpt); ?></span>
+							<span class="content-item-excerpt" itemprop="articleBody"><?php echo wp_kses_post($this->to_string($content->excerpt)); ?></span>
 							<span itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
 								<meta itemprop="name" content="University of Arkansas for Medical Sciences"/>
 								<span itemprop="logo" itemscope itemtype="https://schema.org/ImageObject">
@@ -389,20 +389,20 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
                 }
                 ?>
 					    <div class="default-card" itemscope itemtype="http://schema.org/NewsArticle">
-					    	<meta itemscope itemprop="mainEntityOfPage"  itemType="https://schema.org/WebPage" itemid="<?php echo esc_url($content->link); ?>"/>
-					    	<div class="card-image" itemprop="image" itemscope itemtype="https://schema.org/ImageObject"><?php if ($content->image) { ?><img src="<?php echo esc_url($content->image); ?>" alt="<?php echo esc_html($content->imagecaption); ?>" itemprop="url"><?php } else { ?><img src="http://via.placeholder.com/560x350?text=Not%20Available" alt="" itemprop="url"><?php } ?></div>
+					    	<meta itemscope itemprop="mainEntityOfPage"  itemType="https://schema.org/WebPage" itemid="<?php echo esc_url($this->to_string($content->link)); ?>"/>
+					    	<div class="card-image" itemprop="image" itemscope itemtype="https://schema.org/ImageObject"><?php if ($content->image) { ?><img src="<?php echo esc_url($this->to_string($content->image)); ?>" alt="<?php echo esc_html($this->to_string($content->imagecaption)); ?>" itemprop="url"><?php } else { ?><img src="http://via.placeholder.com/560x350?text=Not%20Available" alt="" itemprop="url"><?php } ?></div>
 							<div class="card-body">
 					      		<span>
 					      			<h3 itemprop="headline">
-					                	<a href="<?php echo esc_url($content->link); ?>" class="pic-title"><?php echo esc_html($content->title); ?></a>
+					                	<a href="<?php echo esc_url($this->to_string($content->link)); ?>" class="pic-title"><?php echo esc_html($this->to_string($content->title)); ?></a>
 					              	</h3>
 					              	<span itemprop="articleBody">
-					      			<?php echo wp_kses_post($content->excerpt); ?>
+					      			<?php echo wp_kses_post($this->to_string($content->excerpt)); ?>
 					      			</span>
-					              	<a href="<?php echo esc_url($content->link); ?>" class="pic-text-more uams-btn btn-sm btn-red" itemprop="url">Read more</a>
-					              	<span class="content-item-byline-author" itemprop="author" itemscope itemtype="http://schema.org/Person"><meta itemprop="name" content="<?php echo esc_html($content->author_name); ?>"/></span>
-					              	<meta itemprop="datePublished" content="<?php echo esc_html(date('c', strtotime($content->date))); ?>"/>
-					              	<meta itemprop="dateModified" content="<?php echo esc_html(date('c', strtotime($content->modified))); ?>"/>
+					              	<a href="<?php echo esc_url($this->to_string($content->link)); ?>" class="pic-text-more uams-btn btn-sm btn-red" itemprop="url">Read more</a>
+					              	<span class="content-item-byline-author" itemprop="author" itemscope itemtype="http://schema.org/Person"><meta itemprop="name" content="<?php echo esc_html($this->to_string($content->author_name)); ?>"/></span>
+					              	<meta itemprop="datePublished" content="<?php echo esc_html(date('c', $this->timestamp($content->date))); ?>"/>
+					              	<meta itemprop="dateModified" content="<?php echo esc_html(date('c', $this->timestamp($content->modified))); ?>"/>
 					            </span>
 
 							</div>
@@ -436,24 +436,24 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
                 }
                 ?>
 						<div class="uamswp-content-syndication-full" itemscope itemtype="http://schema.org/NewsArticle">
-							<meta itemscope itemprop="mainEntityOfPage"  itemType="https://schema.org/WebPage" itemid="<?php echo esc_url($content->link); ?>"/>
+							<meta itemscope itemprop="mainEntityOfPage"  itemType="https://schema.org/WebPage" itemid="<?php echo esc_url($this->to_string($content->link)); ?>"/>
 							<div class="content-item-thumbnail" itemprop="image" itemscope itemtype="https://schema.org/ImageObject">
-								<?php if ($content->image) { ?><img src="<?php echo esc_url($content->image); ?>" alt="<?php echo $content->imagealt; ?>"><?php } else { ?><meta itemprop="url" content="http://www.uams.edu/_images/blank.gif"/><?php } ?>
-								<?php echo $content->imagecaption ? '<span class="wp-caption-text">'.$content->imagecaption.'</span>' : ''; ?>
+								<?php if ($content->image) { ?><img src="<?php echo esc_url($this->to_string($content->image)); ?>" alt="<?php echo $this->to_string($content->imagealt); ?>"><?php } else { ?><meta itemprop="url" content="http://www.uams.edu/_images/blank.gif"/><?php } ?>
+								<?php echo $content->imagecaption ? '<span class="wp-caption-text">'.$this->to_string($content->imagecaption).'</span>' : ''; ?>
 							</div>
-							<span class="content-item-title"><a href="<?php echo esc_url($content->link); ?>" itemprop="url"><?php echo '<h2 itemprop="headline">'.esc_html($content->title).'</h2>'; ?></a></span>
+							<span class="content-item-title"><a href="<?php echo esc_url($this->to_string($content->link)); ?>" itemprop="url"><?php echo '<h2 itemprop="headline">'.esc_html($this->to_string($content->title)).'</h2>'; ?></a></span>
 							<div class="content-item-byline">
-								<!-- <?php if ($content->date) { ?><span class="content-item-byline-date"><?php echo esc_html(date($this->string_att($atts, 'date_format'), strtotime($content->date))); ?></span> | <?php } ?>-->
-								<?php if ($content->author_name) { ?><span class="content-item-byline-author" itemprop="author" itemscope itemtype="http://schema.org/Person"><span itemprop="name"><?php echo esc_html($content->author_name); ?></span></span><?php } ?>
-								<meta itemprop="datePublished" content="<?php echo esc_html(date('c', strtotime($content->date))); ?>"/>
-					            <meta itemprop="dateModified" content="<?php echo esc_html(date('c', strtotime($content->modified))); ?>"/>
+								<!-- <?php if ($content->date) { ?><span class="content-item-byline-date"><?php echo esc_html(date($this->string_att($atts, 'date_format'), $this->timestamp($content->date))); ?></span> | <?php } ?>-->
+								<?php if ($content->author_name) { ?><span class="content-item-byline-author" itemprop="author" itemscope itemtype="http://schema.org/Person"><span itemprop="name"><?php echo esc_html($this->to_string($content->author_name)); ?></span></span><?php } ?>
+								<meta itemprop="datePublished" content="<?php echo esc_html(date('c', $this->timestamp($content->date))); ?>"/>
+					            <meta itemprop="dateModified" content="<?php echo esc_html(date('c', $this->timestamp($content->modified))); ?>"/>
 							</div>
 							<div class="content-item-content" itemprop="articleBody">
 								<?php
                             if ($content->fullcontent) {
-                                echo do_shortcode(wp_kses_post($content->fullcontent));
+                                echo do_shortcode(wp_kses_post($this->to_string($content->fullcontent)));
                             } else {
-                                echo do_shortcode(wp_kses_post($content->content));
+                                echo do_shortcode(wp_kses_post($this->to_string($content->content)));
                             }
                 ?>
 								<hr size="1" width="75%"/>
@@ -485,7 +485,7 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
      *
      * @since 0.9.0
      *
-     * @param  array<int|string, stdClass>  $data  List of post data.
+     * @param  array<int|string, stdClass>|null  $data  List of post data.
      * @param  array<string, mixed>  $atts  Attributes passed with the original shortcode.
      * @return array<int|string, stdClass> Array of objects representing individual posts.
      */
@@ -502,47 +502,43 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
 
             // Only a subset of data is returned for a headlines request.
             if ($atts['output'] === 'headlines') {
-                $subset->link = $post->link;
-                $subset->date = $post->date;
-                $subset->title = $post->title->rendered;
+                $subset->link = $this->value_at($post, 'link');
+                $subset->date = $this->value_at($post, 'date');
+                $subset->title = $this->value_at($post, 'title', 'rendered');
             } else {
-                $subset->ID = $post->id;
-                $subset->date = $post->date; // In time zone of requested site
-                $subset->link = $post->link;
-                $subset->modified = $post->modified; // Added for schema
+                $subset->ID = $this->value_at($post, 'id');
+                $subset->date = $this->value_at($post, 'date'); // In time zone of requested site
+                $subset->link = $this->value_at($post, 'link');
+                $subset->modified = $this->value_at($post, 'modified'); // Added for schema
 
                 // These fields all provide a rendered version when the response is generated.
-                $subset->title = $post->title->rendered;
-                $subset->content = $post->content->rendered;
-                $subset->excerpt = $post->excerpt->rendered;
+                $subset->title = $this->value_at($post, 'title', 'rendered');
+                $subset->content = $this->value_at($post, 'content', 'rendered');
+                $subset->excerpt = $this->value_at($post, 'excerpt', 'rendered');
 
                 if ($atts['output'] === 'full') {
-                    $subset->fullcontent = $post->fullcontent;
+                    $subset->fullcontent = $this->value_at($post, 'fullcontent');
                 }
 
                 // If a featured image is assigned (int), the full data will be in the `_embedded` property.
-                if (! empty($post->featured_media) && isset($post->_embedded->{'wp:featuredmedia'}) && count($post->_embedded->{'wp:featuredmedia'}) > 0) {
-                    $subset_feature = $post->_embedded->{'wp:featuredmedia'}[0]->media_details;
+                $media = $this->value_at($post, '_embedded', 'wp:featuredmedia', 0);
+                if (! empty($this->value_at($post, 'featured_media')) && $media !== null) {
+                    $subset->thumbnail = $this->value_at($media, 'source_url');
+                    foreach (['post-thumbnail', 'thumbnail'] as $size) {
+                        if ($this->value_at($media, 'media_details', 'sizes', $size) !== null) {
+                            $subset->thumbnail = $this->value_at($media, 'media_details', 'sizes', $size, 'source_url');
 
-                    if (isset($subset_feature->sizes->{'post-thumbnail'})) {
-                        $subset->thumbnail = $subset_feature->sizes->{'post-thumbnail'}->source_url;
-                        $subset->thumbalt = $post->_embedded->{'wp:featuredmedia'}[0]->alt_text;
-                        $subset->thumbcaption = $post->_embedded->{'wp:featuredmedia'}[0]->caption->rendered;
-                    } elseif (isset($subset_feature->sizes->{'thumbnail'})) {
-                        $subset->thumbnail = $subset_feature->sizes->{'thumbnail'}->source_url;
-                        $subset->thumbalt = $post->_embedded->{'wp:featuredmedia'}[0]->alt_text;
-                        $subset->thumbcaption = $post->_embedded->{'wp:featuredmedia'}[0]->caption->rendered;
-                    } else {
-                        $subset->thumbnail = $post->_embedded->{'wp:featuredmedia'}[0]->source_url;
-                        $subset->thumbalt = $post->_embedded->{'wp:featuredmedia'}[0]->alt_text;
-                        $subset->thumbcaption = $post->_embedded->{'wp:featuredmedia'}[0]->caption->rendered;
+                            break;
+                        }
                     }
+                    $subset->thumbalt = $this->value_at($media, 'alt_text');
+                    $subset->thumbcaption = $this->value_at($media, 'caption', 'rendered');
 
                     // Add Medium Image
-                    if (isset($subset_feature->sizes->{'uams_news'})) {
-                        $subset->image = $subset_feature->sizes->{'uams_news'}->source_url;
-                        $subset->imagealt = $post->_embedded->{'wp:featuredmedia'}[0]->alt_text;
-                        $subset->imagecaption = $post->_embedded->{'wp:featuredmedia'}[0]->caption->rendered;
+                    if ($this->value_at($media, 'media_details', 'sizes', 'uams_news') !== null) {
+                        $subset->image = $this->value_at($media, 'media_details', 'sizes', 'uams_news', 'source_url');
+                        $subset->imagealt = $this->value_at($media, 'alt_text');
+                        $subset->imagecaption = $this->value_at($media, 'caption', 'rendered');
                     } else {
                         $subset->image = false;
                     }
@@ -551,8 +547,9 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
                 }
 
                 // If an author is available, it will be in the `_embedded` property.
-                if (isset($post->_embedded) && isset($post->_embedded->author) && count($post->_embedded->author) > 0) {
-                    $subset->author_name = $post->_embedded->author[0]->name;
+                $author = $this->value_at($post, '_embedded', 'author', 0);
+                if ($author !== null) {
+                    $subset->author_name = $this->value_at($author, 'name');
                 } else {
                     $subset->author_name = '';
                 }
@@ -573,11 +570,10 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
              */
             $subset = apply_filters('uams_content_syndication_host_data', $subset, $post, $atts);
 
-            if ($post->date) {
-                $subset_key = strtotime($post->date);
-            } else {
-                $subset_key = time();
-            }
+            // An undated post, or a date strtotime() cannot read, takes the current time as its key: a false
+            // key would collide with the next one while `$subset_key++` leaves false unchanged.
+            $post_date = $this->to_string($this->value_at($post, 'date'));
+            $subset_key = $post_date ? (strtotime($post_date) ?: time()) : time();
 
             while (array_key_exists($subset_key, $new_data)) {
                 $subset_key++;
@@ -651,7 +647,7 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
      *
      * @since 0.9.0
      *
-     * @param  list<array<mixed>>  $data  Array of post data.
+     * @param  list<array<mixed>>|null  $data  Array of post data.
      * @param  array<string, mixed>  $atts  Attributes passed with the original shortcode.
      * @return array<int|string, stdClass> Array of objects representing individual posts.
      */
@@ -723,7 +719,7 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
              * @since 0.7.10
              *
              * @param  stdClass  $subset  Data attached to this result.
-             * @param  array<string, mixed>  $post  Data for an individual post retrieved through `rest_do_request()` on this site.
+             * @param  array<mixed>  $post  Data for an individual post retrieved through `rest_do_request()` on this site.
              * @param  array<string, mixed>  $atts  Attributes originally passed to the `uamswp_news` shortcode.
              */
             $subset = apply_filters('uams_content_syndication_host_data', $subset, $post, $atts);

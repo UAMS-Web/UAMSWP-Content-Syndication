@@ -9,8 +9,25 @@
 
 declare(strict_types=1);
 
+use PHPUnit\Framework\TestCase;
+
 use function Brain\Monkey\setUp;
 use function Brain\Monkey\tearDown;
+
+/**
+ * Add Mockery's expectation count to the running test's assertions.
+ *
+ * Pest binds the test to `$this`, which static analysis types as `mixed`, so
+ * the test is narrowed here before it is called.
+ *
+ * @param  mixed  $test  The running test.
+ */
+function countMockeryExpectations(mixed $test): void
+{
+    if ($test instanceof TestCase) {
+        $test->addToAssertionCount(Mockery::getContainer()->mockery_getExpectationCount());
+    }
+}
 
 /*
  * Brain Monkey around every test.
@@ -28,7 +45,7 @@ uses()
         setUp();
     })
     ->afterEach(function (): void {
-        $this->addToAssertionCount(Mockery::getContainer()->mockery_getExpectationCount());
+        countMockeryExpectations($this);
 
         tearDown();
     })

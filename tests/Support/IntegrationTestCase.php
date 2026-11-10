@@ -44,6 +44,13 @@ abstract class IntegrationTestCase extends WP_UnitTestCase
     {
         global $shortcode_tags;
 
-        return $shortcode_tags['uamswp_news'][0];
+        $registered = is_array($shortcode_tags) ? ($shortcode_tags['uamswp_news'] ?? null) : null;
+        $handler = is_array($registered) ? ($registered[0] ?? null) : null;
+
+        if (! $handler instanceof UAMS_Syndicate_Shortcode_News) {
+            throw new \LogicException('The News shortcode is not registered.');
+        }
+
+        return $handler;
     }
 }

@@ -92,7 +92,8 @@ final class RemoteNewsTest extends IntegrationTestCase
             array $data,
             array $atts
         ) use (&$observed): string {
-            $observed = [$content, array_values($data)[0]->title, $atts['count']];
+            $first = array_values($data)[0];
+            $observed = [$content, $first instanceof \stdClass ? $first->title : null, $atts['count']];
 
             return 'custom-output';
         }, 10, 3);

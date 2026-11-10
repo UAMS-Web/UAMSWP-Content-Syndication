@@ -44,7 +44,7 @@ parameters:
 
     # The highest level the code passes today (see the code-quality skill); raised one
     # level per change as findings are fixed, until `max`.
-    level: 9
+    level: 10
 
     # First-party PHP, the plugin header file included.
     paths:
@@ -178,6 +178,12 @@ parameters:
         -
             identifier: if.alwaysFalse
             path: uamswp-content-syndication.php
+        # `create_function()` was removed in PHP 8.0, so it has no signature and its
+        # result reads as `mixed` at level 10. The call sits in the same dead guard.
+        -
+            identifier: argument.type
+            message: '#^Parameter \#2 \$callback of function add_action expects callable\(\): mixed, mixed given\.$#'
+            path: uamswp-content-syndication.php
 
         # When the Unit tests run on Pest (with the extension above), two
         # entries, each pinned to `tests/`, so the same error anywhere else
@@ -204,3 +210,10 @@ parameters:
             message: '#of internal class Pest\\#'
             path: tests
             reportUnmatched: false
+        # PHPUnit tags `addToAssertionCount()` @internal. `tests/Pest.php` calls it
+        # to count Brain Monkey's Mockery expectations as assertions; PHPUnit
+        # offers no public way to add to the count in bulk.
+        -
+            identifier: method.internal
+            message: '#^Call to internal method PHPUnit\\Framework\\TestCase::addToAssertionCount\(\)#'
+            path: tests/Pest.php
