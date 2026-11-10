@@ -334,7 +334,7 @@ it('renders each output format from cached normalized data with sorting and offs
         expect($html)->toBe('');
     } else {
         expect($html)->toContain('UAMSWP Output '.ucfirst($output), 'Older entry')
-            ->not->toContain('Distinct title');
+            ->not()->toContain('Distinct title');
         if ($output === 'excerpts') {
             expect($html)->toContain('2026/01/01', 'Distinct author', '<b>Brief excerpt</b>', 'https://images.example/post.jpg', 'Image alternative');
         } elseif ($output === 'cards') {
@@ -362,8 +362,8 @@ it('renders explicit media and content fallbacks without omitted fixture propert
         expect($html)->toContain('http://via.placeholder.com/560x350?text=Not%20Available');
     } elseif ($output === 'full') {
         expect($html)->toContain('http://www.uams.edu/_images/blank.gif', 'expanded:<p>Ordinary content</p>')
-            ->not->toContain('class="content-item-byline-author"')
-            ->not->toContain('wp-caption-text')
+            ->not()->toContain('class="content-item-byline-author"')
+            ->not()->toContain('wp-caption-text')
             ->toMatch('/blank\.gif"\/>\s*<\/div>/');
     } else {
         expect($html)->not->toContain('<img');
@@ -415,11 +415,20 @@ it('caches local REST misses for both accepted and rejected statuses', function 
     $post = json_decode(json_encode(newsRemotePost(), JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
     $post['featured_media'] = 0;
     $status = 200;
-    $response = Mockery::mock();
-    $response->data = [$post];
-    $response->shouldReceive('get_status')->andReturnUsing(function () use (&$status): int {
+    $response = new class([$post], function () use (&$status): int {
         return $status;
-    });
+    })
+    {
+        /**
+         * @param  array<int, array<string, mixed>>  $data
+         */
+        public function __construct(public array $data, private Closure $statusReader) {}
+
+        public function get_status(): int
+        {
+            return ($this->statusReader)();
+        }
+    };
     when('rest_do_request')->justReturn($response);
     $stored = [];
     when('wp_cache_set')->alias(function (string $key, mixed $data, string $group) use (&$stored): bool {
@@ -551,11 +560,20 @@ it('normalizes and caches merged local REST misses only on exact success', funct
     $post = json_decode(json_encode(newsRemotePost(), JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
     $post['featured_media'] = 0;
     $status = 200;
-    $response = Mockery::mock();
-    $response->data = [$post];
-    $response->shouldReceive('get_status')->andReturnUsing(function () use (&$status): int {
+    $response = new class([$post], function () use (&$status): int {
         return $status;
-    });
+    })
+    {
+        /**
+         * @param  array<int, array<string, mixed>>  $data
+         */
+        public function __construct(public array $data, private Closure $statusReader) {}
+
+        public function get_status(): int
+        {
+            return ($this->statusReader)();
+        }
+    };
     when('rest_do_request')->justReturn($response);
     $stored = null;
     when('wp_cache_set')->alias(function (string $key, mixed $data, string $group) use (&$stored): bool {
