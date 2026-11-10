@@ -18,7 +18,7 @@ class UAMS_Syndicate_Shortcode_Base
     /**
      * Default attributes applied to all shortcodes that extend this base.
      *
-     * @var array
+     * @var array<string, mixed>
      */
     // The mutation run reports these initializers as uncovered although the defaults test pins every value:
     // changing one default fails that test. The run cannot attribute a property initializer to a test.
@@ -46,14 +46,14 @@ class UAMS_Syndicate_Shortcode_Base
      * Defaults for individual base attributes can be overridden for a
      * specific shortcode.
      *
-     * @var array
+     * @var array<string, mixed>
      */
     public $local_default_atts = [];
 
     /**
      * Defaults can be extended with additional keys by a specific shortcode.
      *
-     * @var array
+     * @var array<string, mixed>
      */
     public $local_extended_atts = [];
 
@@ -75,12 +75,12 @@ class UAMS_Syndicate_Shortcode_Base
     /**
      * Required to add a shortcode definition.
      */
-    public function add_shortcode() {}
+    public function add_shortcode(): void {}
 
     /**
      * Required to display the content of a shortcode.
      *
-     * @param  array  $atts  A list of attributes assigned to the shortcode.
+     * @param  array<string, mixed>  $atts  A list of attributes assigned to the shortcode.
      * @return string Final output for the shortcode.
      */
     public function display_shortcode($atts): string
@@ -106,8 +106,8 @@ class UAMS_Syndicate_Shortcode_Base
      * Process passed attributes for a shortcode against arrays of base defaults,
      * local defaults, and extended local defaults.
      *
-     * @param  array  $atts  Attributes passed to a shortcode.
-     * @return array Fully populated list of attributes expected by the shortcode.
+     * @param  array<string, mixed>  $atts  Attributes passed to a shortcode.
+     * @return array<string, mixed> Fully populated list of attributes expected by the shortcode.
      */
     public function process_attributes($atts)
     {
@@ -137,7 +137,7 @@ class UAMS_Syndicate_Shortcode_Base
      * Create a hash of all attributes to use as a cache key. If any attribute changes,
      * then the cache will regenerate on the next load.
      *
-     * @param  array  $atts  List of attributes used for the shortcode.
+     * @param  array<string, mixed>  $atts  List of attributes used for the shortcode.
      * @param  string  $shortcode  Shortcode being displayed.
      * @return mixed False if cache is not available or expired. The stored value if available.
      */
@@ -153,7 +153,7 @@ class UAMS_Syndicate_Shortcode_Base
     /**
      * Store generated content from the shortcode in cache.
      *
-     * @param  array  $atts  List of attributes used for the shortcode.
+     * @param  array<string, mixed>  $atts  List of attributes used for the shortcode.
      * @param  string  $shortcode  Shortcode being displayed.
      * @param  mixed  $content  Generated content after processing the shortcode.
      */
@@ -170,9 +170,9 @@ class UAMS_Syndicate_Shortcode_Base
      *
      * @since 0.10.0
      *
-     * @param  array  $site_url  Contains host and path of the requested URL.
-     * @param  array  $atts  Contains the original shortcode attributes.
-     * @return array List of request information.
+     * @param  array<string, mixed>  $site_url  Contains host and path of the requested URL.
+     * @param  array<string, mixed>  $atts  Contains the original shortcode attributes.
+     * @return array<string, mixed> List of request information.
      */
     public function build_initial_request($site_url, $atts): array
     {
@@ -214,8 +214,8 @@ class UAMS_Syndicate_Shortcode_Base
     /**
      * Determine what the base URL should be used for REST API data.
      *
-     * @param  array  $atts  List of attributes used for the shortcode.
-     * @return bool|array host and path if available, false if not.
+     * @param  array<string, mixed>  $atts  List of attributes used for the shortcode.
+     * @return bool|array<string, mixed> host and path if available, false if not.
      */
     public function get_request_url($atts)
     {
@@ -238,7 +238,7 @@ class UAMS_Syndicate_Shortcode_Base
      * Add proper filters to a given URL to handle lookup by University taxonomies and
      * built in WordPress taxonomies.
      *
-     * @param  array  $atts  List of attributes used for the shortcode.
+     * @param  array<string, mixed>  $atts  List of attributes used for the shortcode.
      * @param  string  $request_url  REST API URL being built.
      * @return string Modified REST API URL.
      */
