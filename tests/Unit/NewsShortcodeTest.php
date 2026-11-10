@@ -496,6 +496,7 @@ it('leaves out local results when the local host override is empty', function ()
     $remote = (object) ['title' => 'Remote only'];
     when('wp_cache_get_last_changed')->justReturn('generation-10');
     when('wp_cache_get')->alias(fn (string $key, string $group): array => $group === 'uamswp_news' ? [20 => $remote] : []);
+
     Functions\expect('rest_do_request')->never();
 
     expect($this->news->display_shortcode($this->newsAtts + ['local_count' => 2, 'local_host' => '']))
