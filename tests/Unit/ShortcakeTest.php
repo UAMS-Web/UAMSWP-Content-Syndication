@@ -47,7 +47,7 @@ final class ShortcakeTest extends TestCase
             $this->assertSame(10, has_action('admin_init', [$news, 'build_shortcake']));
             expect('wp_enqueue_script')->once()->with('uams_syndications_editor_js', '/js/uams-syndication-shortcake.js');
             $enqueue();
-            $this->addToAssertionCount(Mockery::getContainer()->mockery_getExpectationCount());
+            $this->assertGreaterThan(0, Mockery::getContainer()->mockery_getExpectationCount());
         } finally {
             // Restore mocks even if an assertion fails; the class dies with PHP.
             tearDown();
