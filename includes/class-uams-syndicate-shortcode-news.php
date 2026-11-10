@@ -492,7 +492,7 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
      *
      * @since 0.9.0
      *
-     * @param  object  $data  List of post data.
+     * @param  array<int, object>  $data  List of post data.
      * @param  array  $atts  Attributes passed with the original shortcode.
      * @return array Array of objects representing individual posts.
      */
