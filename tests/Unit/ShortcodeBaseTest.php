@@ -222,19 +222,20 @@ it('normalizes the legacy local scheme without mistaking another path for home',
 });
 
 it('uses a network site home scheme but leaves unmatched hosts remote', function (bool $found): void {
-    // Distinguish current home, matching subsite, and a non-network host.
-    when('get_home_url')->alias(fn (int $id = 0): string => $id === 37 ? 'http://network.example/child/' : 'https://home.example/root/');
+    // Distinguish current home, matching subsite, and a non-network host. WordPress
+    // hands the site id back as a numeric string, which the home URL lookup needs as an int.
+    when('get_home_url')->alias(fn (mixed $id = 0): string => $id === 37 ? 'http://network.example/child/' : 'https://home.example/root/');
     when('is_multisite')->justReturn(true);
     Functions\expect('get_blog_details')->once()
         ->with(['domain' => 'network.example', 'path' => '/child/'], false)
-        ->andReturn($found ? (object) ['blog_id' => 37] : false);
+        ->andReturn($found ? (object) ['blog_id' => '37'] : false);
 
     expect($this->shortcode->build_initial_request(
         ['host' => 'network.example', 'path' => '/child/'],
         ['scheme' => 'https', 'query' => 'pages'],
     ))->toBe([
         'url' => ($found ? 'http' : 'https').'://network.example/child/wp-json/wp/v2/pages',
-        'scheme' => $found ? 'http' : 'https', 'site_id' => $found ? 37 : false,
+        'scheme' => $found ? 'http' : 'https', 'site_id' => $found ? '37' : false,
     ]);
 })->with([true, false]);
 
