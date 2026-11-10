@@ -342,3 +342,12 @@ it('treats a taxonomy filter result that is not a string as an empty URL', funct
 
     expect(baseShortcode()->build_taxonomy_filters([], 'https://news.uams.edu/wp-json/wp/v2/posts'))->toBe('');
 });
+
+it('drops positional attributes from the processed list', function (): void {
+    when('shortcode_atts')->alias(fn (array $defaults, array $atts): array => $defaults + [0 => 'positional']);
+
+    $result = baseShortcode()->process_attributes([]);
+
+    expect($result)->not->toHaveKey(0)
+        ->and($result['host'])->toBe('news.uams.edu');
+});

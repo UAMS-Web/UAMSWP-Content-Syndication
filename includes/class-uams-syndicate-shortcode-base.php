@@ -132,7 +132,8 @@ class UAMS_Syndicate_Shortcode_Base
 
         $attributes = shortcode_atts($defaults, $atts, $this->shortcode_name);
 
-        return array_combine(array_map(strval(...), array_keys($attributes)), $attributes);
+        // Only named attributes are kept: a positional one has an integer key.
+        return array_filter($attributes, is_string(...), ARRAY_FILTER_USE_KEY);
     }
 
     /**
