@@ -254,9 +254,6 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
                     $local_atts[$attribute] = $value;
                 }
             }
-            // This legacy assignment is never read; retain it without mutating its value.
-            // @pest-mutate-ignore: ConcatRemoveLeft, ConcatRemoveRight, ConcatSwitchSides
-            $local_shortcodes['host'] = get_site()->domain.get_site()->path;
             $local_atts['count'] = $atts['local_count'];
             $local_url = $this->get_request_url($local_atts);
             $request = $this->build_initial_request($local_url, $local_atts);
@@ -282,9 +279,7 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
                 }
                 wp_cache_set($cache_key, $local_data, 'uamswp-content');
             }
-            if (is_array($local_data)) {
-                $new_data += $local_data;
-            }
+            $new_data += $local_data;
         } // End if().
 
         // Reverse sort the array of data by date.
