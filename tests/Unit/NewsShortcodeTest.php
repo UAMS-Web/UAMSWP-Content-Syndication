@@ -55,7 +55,7 @@ beforeEach(function (): void {
     // Stub only the WordPress boundary, leaving the News implementation real.
     stubEscapeFunctions();
     stubTranslationFunctions();
-    when('add_shortcode')->justReturn(null);
+    when('add_shortcode')->justReturn();
     when('shortcode_atts')->alias(fn (array $defaults, array $atts): array => array_replace($defaults, array_intersect_key($atts, $defaults)));
     when('trailingslashit')->alias(fn (string $value): string => rtrim($value, '/').'/');
     when('wp_parse_url')->alias(fn (string $url, int $component = -1): mixed => parse_url($url, $component));
