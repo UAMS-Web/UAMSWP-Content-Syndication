@@ -187,7 +187,7 @@ it('adds only populated taxonomy filters after the extension filter', function (
 
         return ($parts['scheme'] ?? '').'://'.($parts['host'] ?? '').($parts['path'] ?? '').'?'.http_build_query(array_replace($query, $args));
     });
-    when('sanitize_key')->alias(fn (string $key): string => preg_replace('/[^a-z0-9_\-]/', '', strtolower($key)));
+    when('sanitize_key')->alias(fn (string $key): string => (string) preg_replace('/[^a-z0-9_\-]/', '', strtolower($key)));
     expectApplied('uamswp_content_syndicate_taxonomy_filters')->twice()
         ->andReturnUsing(fn (string $url): string => $url.'?extension=kept');
 

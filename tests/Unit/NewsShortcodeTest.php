@@ -603,7 +603,7 @@ it('normalizes and caches merged local REST misses only on exact success', funct
         }
     };
     when('rest_do_request')->justReturn($response);
-    $stored = null;
+    $stored = ['', null, ''];
     when('wp_cache_set')->alias(function (string $key, mixed $data, string $group) use (&$stored): bool {
         $stored = [$key, $data, $group];
 
@@ -628,7 +628,7 @@ it('normalizes and caches merged local REST misses only on exact success', funct
 
 it('fetches and caches successful remote normalization including invalid JSON', function (string $body, int $status, int $expectedCount): void {
     // Capture the actual normalized cache write and render that same data.
-    $stored = null;
+    $stored = ['', null, '', 0];
     when('wp_cache_get')->justReturn(false);
     when('wp_remote_get')->justReturn(['response' => 'fixture']);
     when('is_wp_error')->justReturn(false);
