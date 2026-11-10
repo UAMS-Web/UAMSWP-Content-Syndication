@@ -44,7 +44,7 @@ parameters:
 
     # The highest level the code passes today (see the code-quality skill); raised one
     # level per change as findings are fixed, until `max`.
-    level: 0
+    level: 6
 
     # First-party PHP, the plugin header file included.
     paths:
@@ -144,6 +144,17 @@ parameters:
     # an entry needs. With every entry commented out the key is empty, which
     # PHPStan reads as no entries.
     ignoreErrors:
+        # The Unit suite hands state from `beforeEach()` to each test through
+        # properties on `$this`. Pest types a test closure's `$this` as `TestCall`
+        # (`@param-closure-this`), which declares none of them. A stub declaring
+        # them cannot name the plugin classes: PHPStan validates stubs before the
+        # analyzed paths are indexed, and no autoload or bootstrap setting changed
+        # that. The properties read as `mixed` meanwhile.
+        -
+            identifier: property.notFound
+            message: '#^Access to an undefined property Pest\\PendingCalls\\TestCall::\$\w+\.$#'
+            path: tests/Unit
+            reportUnmatched: false
         # `create_function()` was removed in PHP 8.0. The call sits in the plugin
         # header's guard for PHP below 5.3, a branch that never runs on the
         # supported 8.2 floor. Removing the dead guard is a separate change.
@@ -160,20 +171,13 @@ parameters:
             identifier: function.notFound
             message: '#^Function shortcode_ui_register_for_shortcode not found\.$#'
             path: includes/class-uams-syndicate-shortcode-news.php
-        # The entry most plugins need once the level reaches 4, from
-        # aether-wordpress-migration-api: the PHP version guard in the plugin header.
-        # PHPStan analyzes at the `min` above, so
-        # `version_compare(PHP_VERSION, '8.2', '<')` is always false *to the
-        # analyzer*, but the guard exists precisely for the case the analyzer
-        # cannot model: a site downgraded underneath an already-active plugin,
-        # where the alternative to this branch is a fatal error instead of an
-        # admin notice. PHPStan reports `if.alwaysFalse` from level 4, and only
-        # where the header has such a guard; below that, or without the guard,
-        # this entry is unmatched and fails the run. (The range form of
-        # `phpVersion` keeps it matching; the single-integer form does not.)
-        # -
-        #     identifier: if.alwaysFalse
-        #     path: my-plugin.php
+        # The plugin header's `version_compare(PHP_VERSION, '5.3', '<')` guard is
+        # always false at the supported 8.2 floor, and PHPStan reports
+        # `if.alwaysFalse` from level 4. The guard predates the floor; removing it
+        # together with the `create_function()` call inside it is a separate change.
+        -
+            identifier: if.alwaysFalse
+            path: uamswp-content-syndication.php
 
         # When the Unit tests run on Pest (with the extension above), two
         # entries, each pinned to `tests/`, so the same error anywhere else

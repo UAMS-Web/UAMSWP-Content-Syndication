@@ -55,10 +55,7 @@ beforeEach(function (): void {
     // Stub only the WordPress boundary, leaving the News implementation real.
     stubEscapeFunctions();
     stubTranslationFunctions();
-    $this->registeredNews = [];
-    when('add_shortcode')->alias(function (string $tag, array $callback): void {
-        $this->registeredNews[$tag] = $callback;
-    });
+    when('add_shortcode')->justReturn();
     when('shortcode_atts')->alias(fn (array $defaults, array $atts): array => array_replace($defaults, array_intersect_key($atts, $defaults)));
     when('trailingslashit')->alias(fn (string $value): string => rtrim($value, '/').'/');
     when('wp_parse_url')->alias(fn (string $url, int $component = -1): mixed => parse_url($url, $component));
@@ -189,20 +186,23 @@ it('returns empty normalized data for empty inputs', function (): void {
         ->and($this->news->process_local_posts(null, ['output' => 'cards']))->toBe([]);
 });
 
-it('currently raises a property warning for local REST array headlines', function (): void {
-    // Promote the production warning to an assertion instead of suppressing it.
+it('reduces local REST array headlines to link, date and title', function (): void {
+    // Promote any warning to an exception, so reading an array as an object cannot pass unnoticed.
     $post = ['date' => '2026-03-02T09:11:13', 'link' => 'https://local.example/story', 'title' => ['rendered' => 'Local title']];
     set_error_handler(static function (int $severity, string $message): never {
         throw new ErrorException($message, 0, $severity);
     });
 
-    // Restore the runner's handler even when the expected defect is observed.
+    // Restore the runner's handler even when an assertion fails.
     try {
-        expect(fn (): array => $this->news->process_local_posts([$post], ['output' => 'headlines']))
-            ->toThrow(ErrorException::class, 'Attempt to read property "link" on array');
+        $data = $this->news->process_local_posts([$post], ['output' => 'headlines']);
     } finally {
         restore_error_handler();
     }
+
+    expect(array_map(fn (object $item): array => (array) $item, array_values($data)))->toBe([
+        ['link' => 'https://local.example/story', 'date' => '2026-03-02T09:11:13', 'title' => 'Local title'],
+    ]);
 });
 
 it('currently raises an image-property warning when rendering remote cards without media', function (): void {
@@ -334,7 +334,7 @@ it('renders each output format from cached normalized data with sorting and offs
         expect($html)->toBe('');
     } else {
         expect($html)->toContain('UAMSWP Output '.ucfirst($output), 'Older entry')
-            ->not->toContain('Distinct title');
+            ->not()->toContain('Distinct title');
         if ($output === 'excerpts') {
             expect($html)->toContain('2026/01/01', 'Distinct author', '<b>Brief excerpt</b>', 'https://images.example/post.jpg', 'Image alternative');
         } elseif ($output === 'cards') {
@@ -362,8 +362,8 @@ it('renders explicit media and content fallbacks without omitted fixture propert
         expect($html)->toContain('http://via.placeholder.com/560x350?text=Not%20Available');
     } elseif ($output === 'full') {
         expect($html)->toContain('http://www.uams.edu/_images/blank.gif', 'expanded:<p>Ordinary content</p>')
-            ->not->toContain('class="content-item-byline-author"')
-            ->not->toContain('wp-caption-text')
+            ->not()->toContain('class="content-item-byline-author"')
+            ->not()->toContain('wp-caption-text')
             ->toMatch('/blank\.gif"\/>\s*<\/div>/');
     } else {
         expect($html)->not->toContain('<img');
@@ -415,11 +415,20 @@ it('caches local REST misses for both accepted and rejected statuses', function 
     $post = json_decode(json_encode(newsRemotePost(), JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
     $post['featured_media'] = 0;
     $status = 200;
-    $response = Mockery::mock();
-    $response->data = [$post];
-    $response->shouldReceive('get_status')->andReturnUsing(function () use (&$status): int {
+    $response = new class([$post], function () use (&$status): int {
         return $status;
-    });
+    })
+    {
+        /**
+         * @param  array<int, array<string, mixed>>  $data
+         */
+        public function __construct(public array $data, private Closure $statusReader) {}
+
+        public function get_status(): int
+        {
+            return ($this->statusReader)();
+        }
+    };
     when('rest_do_request')->justReturn($response);
     $stored = [];
     when('wp_cache_set')->alias(function (string $key, mixed $data, string $group) use (&$stored): bool {
@@ -551,11 +560,20 @@ it('normalizes and caches merged local REST misses only on exact success', funct
     $post = json_decode(json_encode(newsRemotePost(), JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
     $post['featured_media'] = 0;
     $status = 200;
-    $response = Mockery::mock();
-    $response->data = [$post];
-    $response->shouldReceive('get_status')->andReturnUsing(function () use (&$status): int {
+    $response = new class([$post], function () use (&$status): int {
         return $status;
-    });
+    })
+    {
+        /**
+         * @param  array<int, array<string, mixed>>  $data
+         */
+        public function __construct(public array $data, private Closure $statusReader) {}
+
+        public function get_status(): int
+        {
+            return ($this->statusReader)();
+        }
+    };
     when('rest_do_request')->justReturn($response);
     $stored = null;
     when('wp_cache_set')->alias(function (string $key, mixed $data, string $group) use (&$stored): bool {
@@ -617,10 +635,14 @@ it('does not cache remote errors or 404 responses', function (bool $error, int $
 })->with([[true, 200], [false, 404]]);
 
 it('registers the News shortcode and stylesheet hook on construction', function (): void {
+    $registered = [];
+    when('add_shortcode')->alias(function (string $tag, array $callback) use (&$registered): void {
+        $registered[$tag] = $callback;
+    });
     $news = new UAMS_Syndicate_Shortcode_News;
-    expect($news->shortcode_name)->toBe('uamswp_news')
-        ->and($this->registeredNews)->toBe(['uamswp_news' => [$news, 'display_shortcode']])
-        ->and(has_action('wp_enqueue_scripts', [$news, 'enqueue_syndication_stylesheet']))->toBe(10);
+    expect($news->shortcode_name)->toBe('uamswp_news');
+    expect($registered)->toBe(['uamswp_news' => [$news, 'display_shortcode']]);
+    expect(has_action('wp_enqueue_scripts', [$news, 'enqueue_syndication_stylesheet']))->toBe(10);
 });
 
 it('enqueues News styles only when the current post contains its shortcode', function (bool $hasPost, bool $hasShortcode): void {
