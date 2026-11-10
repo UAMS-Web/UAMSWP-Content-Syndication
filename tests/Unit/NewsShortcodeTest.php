@@ -270,10 +270,10 @@ it('normalizes local array posts without inventing remote-only media fields', fu
 it('normalizes local REST media fallbacks and author responses through mocked dispatch', function (): void {
     // Mock the core static factory, never replace WordPress with a behavioral class.
     $requests = Mockery::mock('alias:WP_REST_Request');
-    $requests->shouldReceive('from_url')->andReturnUsing(fn (string $url): object => (object) ['fixture_route' => $url]);
+    $requests->shouldReceive('from_url')->andReturnUsing(fn (string $url): stdClass => (object) ['fixture_route' => $url]);
     $media = ['media_details' => ['sizes' => []], 'source_url' => 'original-local.jpg'];
     $author = ['name' => 'Local author'];
-    when('rest_do_request')->alias(function (object $request) use (&$media, &$author): object {
+    when('rest_do_request')->alias(function (stdClass $request) use (&$media, &$author): object {
         return (object) ['data' => $request->fixture_route === 'author-route' ? $author : $media];
     });
     $post = json_decode(json_encode(newsRemotePost(), JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
@@ -317,10 +317,25 @@ it('allows the host-data filter to replace normalized remote and local results',
         ->and((array) array_values($this->news->process_local_posts([$local], ['output' => 'full']))[0])->toBe(['filtered' => 'full']);
 });
 
+it('skips linked local REST resources whose URL cannot become a request', function (): void {
+    // WP_REST_Request::from_url() answers false for a URL it cannot parse.
+    $requests = Mockery::mock('alias:WP_REST_Request');
+    $requests->shouldReceive('from_url')->andReturn(false);
+    Functions\expect('rest_do_request')->never();
+    $post = json_decode(json_encode(newsRemotePost(), JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+    $post['author'] = 19;
+    $post['_links'] = ['wp:featuredmedia' => [['href' => 'media-route']], 'author' => [['href' => 'author-route']]];
+
+    $result = array_values($this->news->process_local_posts([$post], ['output' => 'json']))[0];
+
+    expect($result->thumbnail)->toBeFalse()
+        ->and($result->author_name)->toBe('');
+});
+
 it('renders each output format from cached normalized data with sorting and offset', function (string $output): void {
     // Cache deliberately unordered results with enough data for every renderer.
     $row = array_values($this->news->process_remote_posts([newsRemotePost()], ['output' => 'full']))[0];
-    $older = clone $row;
+    $older = (object) (array) $row;
     $older->title = 'Older entry';
     $older->date = '2026-01-01T00:00:00';
 
@@ -408,7 +423,7 @@ it('reads local normalized cache hits without dispatching REST requests', functi
 it('caches local REST misses for both accepted and rejected statuses', function (): void {
     // Mock only the static core boundary and the REST response contract.
     $requests = Mockery::mock('alias:WP_REST_Request');
-    $requests->shouldReceive('from_url')->andReturnUsing(fn (string $url): object => (object) ['fixture_route' => $url]);
+    $requests->shouldReceive('from_url')->andReturnUsing(fn (string $url): stdClass => (object) ['fixture_route' => $url]);
     when('wp_cache_get')->justReturn(false);
     when('wp_cache_get_last_changed')->justReturn('generation-rest');
 
@@ -523,7 +538,7 @@ it('bounds remote request counts while retaining the current JSON offset behavio
     // Assert the request boundary rather than a mocked helper call sequence.
     expect($this->news->display_shortcode($this->newsAtts + ['count' => $count, 'offset' => $offset]))
         ->toBe('<!-- UAMSWP Output JSON --><script>var json_data = [];</script>');
-    parse_str(parse_url($url, PHP_URL_QUERY), $query);
+    parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
     expect(isset($query['_embed']))->toBeTrue()
         ->and(isset($query['per_page']) ? (int) $query['per_page'] : null)->toBe($perPage);
 })->with([[false, 0, null], [0, 0, null], [1, 0, 1], [99, 0, 99], [99, 1, 100], [100, 0, 100], [101, 0, 100], [-3, 0, 3], [1, 2, 3]]);
@@ -544,7 +559,7 @@ it('requests all three reduced headline fields and renders the normalized respon
 
     // Verify reduced field order along with observable headline link and title.
     $html = $this->news->display_shortcode($this->newsAtts + ['output' => 'headlines']);
-    parse_str(parse_url($url, PHP_URL_QUERY), $query);
+    parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
     expect($query['_fields'])->toBe(['title', 'date', 'link'])
         ->and($html)->toContain('<a href="https://remote.example/story">Distinct title</a>');
 });
@@ -552,7 +567,7 @@ it('requests all three reduced headline fields and renders the normalized respon
 it('normalizes and caches merged local REST misses only on exact success', function (): void {
     // Keep the remote side cached while making the local side dispatch.
     $requests = Mockery::mock('alias:WP_REST_Request');
-    $requests->shouldReceive('from_url')->andReturnUsing(fn (string $url): object => (object) ['fixture_route' => $url]);
+    $requests->shouldReceive('from_url')->andReturnUsing(fn (string $url): stdClass => (object) ['fixture_route' => $url]);
     when('get_site')->justReturn((object) ['domain' => 'local.example', 'path' => '/']);
     when('wp_cache_get_last_changed')->justReturn('generation-merge');
     when('wp_cache_get')->alias(fn (string $key, string $group): array|false => $group === 'uamswp_news' ? [] : false);

@@ -22,11 +22,13 @@ final class NewsRestTest extends IntegrationTestCase
     {
         // Seed public and private content for an anonymous REST collection.
         $author = self::factory()->user->create(['display_name' => 'Fixture Author']);
+        $this->assertIsInt($author);
         $post = self::factory()->post->create([
             'post_title' => 'Published fixture',
             'post_status' => 'publish',
             'post_author' => $author,
         ]);
+        $this->assertIsInt($post);
         self::factory()->post->create(['post_title' => 'Hidden draft', 'post_status' => 'draft']);
         wp_set_current_user(0);
         $originalBlog = get_current_blog_id();
@@ -77,7 +79,10 @@ final class NewsRestTest extends IntegrationTestCase
         // Visit a distinct caller page before rendering the post collection.
         $post = self::factory()->post->create(['post_title' => 'REST result']);
         $page = self::factory()->post->create(['post_type' => 'page', 'post_title' => 'Caller page']);
-        $this->go_to(get_permalink($page));
+        $this->assertIsInt($page);
+        $permalink = get_permalink($page);
+        $this->assertIsString($permalink);
+        $this->go_to($permalink);
         $originalPost = $GLOBALS['post'];
 
         // Assert the known leak, then restore the fixture state explicitly.
@@ -99,6 +104,7 @@ final class NewsRestTest extends IntegrationTestCase
         // Verify a real page write invalidates the plugin cache generation.
         wp_cache_set('last_changed', 'initial-page', 'uamswp-content');
         $page = self::factory()->post->create(['post_type' => 'page']);
+        $this->assertIsInt($page);
         $this->assertNotSame('initial-page', wp_cache_get('last_changed', 'uamswp-content'));
 
         // Remove only the plugin hook and prove saving no longer invalidates it.

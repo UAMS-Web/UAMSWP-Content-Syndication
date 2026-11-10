@@ -184,7 +184,7 @@ class UAMS_Syndicate_Shortcode_Base
         }
 
         $home_url_data = wp_parse_url(trailingslashit(get_home_url()));
-        if ($home_url_data['host'] === $site_url['host'] && $home_url_data['path'] === $site_url['path']) {
+        if (isset($home_url_data['host'], $home_url_data['path'], $home_url_data['scheme']) && $home_url_data['host'] === $site_url['host'] && $home_url_data['path'] === $site_url['path']) {
             $local_site_id = 1;
             $url_scheme = $home_url_data['scheme'];
             // Local is assigned as a scheme only if the requesting site is the requested site.
@@ -215,7 +215,7 @@ class UAMS_Syndicate_Shortcode_Base
      * Determine what the base URL should be used for REST API data.
      *
      * @param  array<string, mixed>  $atts  List of attributes used for the shortcode.
-     * @return bool|array<string, mixed> host and path if available, false if not.
+     * @return array<string, mixed>|false host and path if available, false if not.
      */
     public function get_request_url($atts)
     {

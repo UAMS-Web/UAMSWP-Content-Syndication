@@ -219,9 +219,8 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
             $cache_key = md5($request_url).':'.$last_changed;
             $new_data = wp_cache_get($cache_key, 'uamswp-content');
             if (! is_array($new_data)) {
-                $request = WP_REST_Request::from_url($request_url);
-                $response = rest_do_request($request);
-                if ($response->get_status() === 200) {
+                $response = $this->dispatch_local_request($request_url);
+                if ($response !== null && $response->get_status() === 200) {
                     $new_data = $this->process_local_posts($response->data, $atts);
                 }
                 wp_cache_set($cache_key, $new_data, 'uamswp-content');
@@ -256,30 +255,31 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
             }
             $local_atts['count'] = $atts['local_count'];
             $local_url = $this->get_request_url($local_atts);
-            $request = $this->build_initial_request($local_url, $local_atts);
-            $request_url = $this->build_taxonomy_filters($local_atts, $request['url']);
-            // Keep the returned cap mutable, ignoring only the equivalent boundary.
-            // @pest-mutate-ignore: GreaterToGreaterOrEqual, DecrementInteger
-            $local_count = (absint($local_atts['count']) > 100)
-                ? 100
-                : $local_atts['count'];
-            $request_url = add_query_arg([
-                'per_page' => absint($local_count),
-                '_embed' => '',
-            ], $request_url);
-            $last_changed = wp_cache_get_last_changed('uamswp-content');
-            $cache_key = md5($request_url).':'.$last_changed;
-            $local_data = wp_cache_get($cache_key, 'uamswp-content');
-            if (! is_array($local_data)) {
-                $request = WP_REST_Request::from_url($request_url);
-                $response = rest_do_request($request);
-                $local_data = [];
-                if ($response->get_status() === 200) {
-                    $local_data = $this->process_local_posts($response->data, $atts);
+            if ($local_url !== false) {
+                $request = $this->build_initial_request($local_url, $local_atts);
+                $request_url = $this->build_taxonomy_filters($local_atts, $request['url']);
+                // Keep the returned cap mutable, ignoring only the equivalent boundary.
+                // @pest-mutate-ignore: GreaterToGreaterOrEqual, DecrementInteger
+                $local_count = (absint($local_atts['count']) > 100)
+                    ? 100
+                    : $local_atts['count'];
+                $request_url = add_query_arg([
+                    'per_page' => absint($local_count),
+                    '_embed' => '',
+                ], $request_url);
+                $last_changed = wp_cache_get_last_changed('uamswp-content');
+                $cache_key = md5($request_url).':'.$last_changed;
+                $local_data = wp_cache_get($cache_key, 'uamswp-content');
+                if (! is_array($local_data)) {
+                    $response = $this->dispatch_local_request($request_url);
+                    $local_data = [];
+                    if ($response !== null && $response->get_status() === 200) {
+                        $local_data = $this->process_local_posts($response->data, $atts);
+                    }
+                    wp_cache_set($cache_key, $local_data, 'uamswp-content');
                 }
-                wp_cache_set($cache_key, $local_data, 'uamswp-content');
+                $new_data += $local_data;
             }
-            $new_data += $local_data;
         } // End if().
 
         // Reverse sort the array of data by date.
@@ -305,7 +305,7 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
      *
      * @since 1.1.0
      *
-     * @param  array<int|string, object>  $new_data  Data containing the posts to be displayed.
+     * @param  array<int|string, stdClass>  $new_data  Data containing the posts to be displayed.
      * @param  array<string, mixed>  $atts  Array of options passed with the shortcode.
      * @return string Content to display for the shortcode.
      */
@@ -487,9 +487,9 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
      *
      * @since 0.9.0
      *
-     * @param  array<int, object>  $data  List of post data.
+     * @param  array<int, stdClass>  $data  List of post data.
      * @param  array<string, mixed>  $atts  Attributes passed with the original shortcode.
-     * @return array<int|string, object> Array of objects representing individual posts.
+     * @return array<int|string, stdClass> Array of objects representing individual posts.
      */
     public function process_remote_posts($data, $atts): array
     {
@@ -569,8 +569,8 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
              *
              * @since 0.7.10
              *
-             * @param  object  $subset  Data attached to this result.
-             * @param  object  $post  Data for an individual post retrieved via `wp-json/posts` from a remote host.
+             * @param  stdClass  $subset  Data attached to this result.
+             * @param  stdClass  $post  Data for an individual post retrieved via `wp-json/posts` from a remote host.
              * @param  array  $atts  Attributes originally passed to the `uamswp_news` shortcode.
              */
             $subset = apply_filters('uams_content_syndication_host_data', $subset, $post, $atts);
@@ -591,13 +591,29 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
     }
 
     /**
+     * Dispatch an internal REST request for a URL on this install.
+     *
+     * @param  string  $url  Full REST API URL, query string included.
+     * @return WP_REST_Response|null Null when the URL cannot be turned into a request.
+     */
+    private function dispatch_local_request(string $url)
+    {
+        $request = WP_REST_Request::from_url($url);
+        if ($request === false) {
+            return null;
+        }
+
+        return rest_do_request($request);
+    }
+
+    /**
      * Process REST API results received locally through `rest_do_request()`
      *
      * @since 0.9.0
      *
      * @param  array<int, array<string, mixed>>  $data  Array of post data.
      * @param  array<string, mixed>  $atts  Attributes passed with the original shortcode.
-     * @return array<int|string, object> Array of objects representing individual posts.
+     * @return array<int|string, stdClass> Array of objects representing individual posts.
      */
     public function process_local_posts($data, $atts): array
     {
@@ -629,10 +645,12 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
                     $subset->fullcontent = $post['fullcontent'];
                 }
 
+                $media_response = null;
                 if (! empty($post['featured_media']) && ! empty($post['_links']['wp:featuredmedia'])) {
-                    $media_request_url = $post['_links']['wp:featuredmedia'][0]['href'];
-                    $media_request = WP_REST_Request::from_url($media_request_url);
-                    $media_response = rest_do_request($media_request);
+                    $media_response = $this->dispatch_local_request($post['_links']['wp:featuredmedia'][0]['href']);
+                }
+
+                if ($media_response !== null) {
                     $data = $media_response->data;
                     $data = $data['media_details']['sizes'];
 
@@ -650,9 +668,7 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
                 $subset->author_name = '';
 
                 if (! empty($post['author']) && ! empty($post['_links']['author'])) {
-                    $author_request_url = $post['_links']['author'][0]['href'];
-                    $author_request = WP_REST_Request::from_url($author_request_url);
-                    $author_response = rest_do_request($author_request);
+                    $author_response = $this->dispatch_local_request($post['_links']['author'][0]['href']);
                     if (isset($author_response->data['name'])) {
                         $subset->author_name = $author_response->data['name'];
                     }
@@ -667,7 +683,7 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
              *
              * @since 0.7.10
              *
-             * @param  object  $subset  Data attached to this result.
+             * @param  stdClass  $subset  Data attached to this result.
              * @param  array<string, mixed>  $post  Data for an individual post retrieved through `rest_do_request()` on this site.
              * @param  array<string, mixed>  $atts  Attributes originally passed to the `uamswp_news` shortcode.
              */

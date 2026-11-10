@@ -60,18 +60,26 @@ final class RegistrationTest extends IntegrationTestCase
     {
         // Visit a real post without the shortcode and dispatch the frontend hook.
         $plain = self::factory()->post->create(['post_content' => 'Plain content']);
-        $this->go_to(get_permalink($plain));
+        $this->assertIsInt($plain);
+        $plainLink = get_permalink($plain);
+        $this->assertIsString($plainLink);
+        $this->go_to($plainLink);
         wp_dequeue_style('uamswp-syndication-news-style');
         do_action('wp_enqueue_scripts');
         $this->assertFalse(wp_style_is('uamswp-syndication-news-style', 'enqueued'));
 
         // Visit a real shortcode post and verify the registered stylesheet URL.
         $syndicated = self::factory()->post->create(['post_content' => '[uamswp_news]']);
-        $this->go_to(get_permalink($syndicated));
+        $this->assertIsInt($syndicated);
+        $syndicatedLink = get_permalink($syndicated);
+        $this->assertIsString($syndicatedLink);
+        $this->go_to($syndicatedLink);
         try {
             do_action('wp_enqueue_scripts');
             $this->assertTrue(wp_style_is('uamswp-syndication-news-style', 'enqueued'));
-            $this->assertStringEndsWith('/css/uamswp-syndication-news.css', wp_styles()->registered['uamswp-syndication-news-style']->src);
+            $source = wp_styles()->registered['uamswp-syndication-news-style']->src;
+            $this->assertIsString($source);
+            $this->assertStringEndsWith('/css/uamswp-syndication-news.css', $source);
         } finally {
             wp_dequeue_style('uamswp-syndication-news-style');
         }

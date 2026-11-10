@@ -25,6 +25,7 @@ final class MultisiteRoutingTest extends IntegrationTestCase
 
         $origin = get_current_blog_id();
         $site = self::factory()->blog->create(['path' => '/synd-fixture/']);
+        $this->assertIsInt($site);
         switch_to_blog($site);
 
         // Build the subsite request and prove the plugin leaves the switch alone.
@@ -32,7 +33,9 @@ final class MultisiteRoutingTest extends IntegrationTestCase
             $home = home_url('/');
             $atts = $this->news()->process_attributes(['site' => $home]);
             $stack = $GLOBALS['_wp_switched_stack'];
-            $request = $this->news()->build_initial_request($this->news()->get_request_url($atts), $atts);
+            $siteUrl = $this->news()->get_request_url($atts);
+            $this->assertIsArray($siteUrl);
+            $request = $this->news()->build_initial_request($siteUrl, $atts);
             $this->assertSame('local', $request['scheme']);
             $this->assertSame(1, $request['site_id']);
             $this->assertNotSame($site, $request['site_id']);
@@ -70,11 +73,16 @@ final class MultisiteRoutingTest extends IntegrationTestCase
 
         $origin = get_current_blog_id();
         $site = self::factory()->blog->create(['path' => '/synd-sibling/']);
+        $this->assertIsInt($site);
         $home = get_home_url($site, '/');
         $post = self::factory()->post->create();
+        $this->assertIsInt($post);
         $user = self::factory()->user->create();
+        $this->assertIsInt($user);
         wp_set_current_user($user);
-        $this->go_to(get_permalink($post));
+        $permalink = get_permalink($post);
+        $this->assertIsString($permalink);
+        $this->go_to($permalink);
         $originalPost = $GLOBALS['post'];
         $stack = $GLOBALS['_wp_switched_stack'];
         $switches = [];
@@ -94,7 +102,9 @@ final class MultisiteRoutingTest extends IntegrationTestCase
 
         // Verify sibling discovery does not choose the internal REST branch.
         $atts = $this->news()->process_attributes(['site' => $home]);
-        $request = $this->news()->build_initial_request($this->news()->get_request_url($atts), $atts);
+        $siteUrl = $this->news()->get_request_url($atts);
+        $this->assertIsArray($siteUrl);
+        $request = $this->news()->build_initial_request($siteUrl, $atts);
         $this->assertSame($site, (int) $request['site_id']);
         $this->assertSame('http', $request['scheme']);
         $this->assertSame($home.'wp-json/wp/v2/posts', $request['url']);
