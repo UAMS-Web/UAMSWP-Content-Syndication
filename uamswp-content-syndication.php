@@ -5,8 +5,8 @@ declare(strict_types=1);
 Plugin Name: UAMSWP Content Syndication
 Plugin URI: -
 Description: Content Syndication plugin for uams.edu & uamshealth.com
-Author: uams, Todd McKee, MEd
-Author URI: http://www.uams.edu/
+Author: UAMS Web Services
+Author URI: https://communications.uams.edu/web/
 Version: 1.4.5.2
 Requires PHP: 8.2
 */
