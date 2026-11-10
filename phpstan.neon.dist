@@ -44,7 +44,7 @@ parameters:
 
     # The highest level the code passes today (see the code-quality skill); raised one
     # level per change as findings are fixed, until `max`.
-    level: 0
+    level: 1
 
     # First-party PHP, the plugin header file included.
     paths:
@@ -144,6 +144,17 @@ parameters:
     # an entry needs. With every entry commented out the key is empty, which
     # PHPStan reads as no entries.
     ignoreErrors:
+        # The Unit suite hands state from `beforeEach()` to each test through
+        # properties on `$this`. Pest types a test closure's `$this` as `TestCall`
+        # (`@param-closure-this`), which declares none of them. A stub declaring
+        # them cannot name the plugin classes: PHPStan validates stubs before the
+        # analyzed paths are indexed, and no autoload or bootstrap setting changed
+        # that. The properties read as `mixed` meanwhile.
+        -
+            identifier: property.notFound
+            message: '#^Access to an undefined property Pest\\PendingCalls\\TestCall::\$\w+\.$#'
+            path: tests/Unit
+            reportUnmatched: false
         # `create_function()` was removed in PHP 8.0. The call sits in the plugin
         # header's guard for PHP below 5.3, a branch that never runs on the
         # supported 8.2 floor. Removing the dead guard is a separate change.
