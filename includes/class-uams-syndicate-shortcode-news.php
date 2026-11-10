@@ -137,8 +137,8 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
      * Process the requested parameters for use with the WordPress JSON API and output
      * the response accordingly.
      *
-     * @param  array  $atts  {
-     *                       Attributes passed with the shortcode.
+     * @param  array<string, mixed>  $atts  {
+     *                                      Attributes passed with the shortcode.
      *
      * @type string $object                   The name of the JSON object to use when output is set to json.
      * @type string $output                   The type of output to display.
@@ -305,8 +305,8 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
      *
      * @since 1.1.0
      *
-     * @param  array  $new_data  Data containing the posts to be displayed.
-     * @param  array  $atts  Array of options passed with the shortcode.
+     * @param  array<int|string, object>  $new_data  Data containing the posts to be displayed.
+     * @param  array<string, mixed>  $atts  Array of options passed with the shortcode.
      * @return string Content to display for the shortcode.
      */
     private function generate_shortcode_output(array $new_data, $atts): string|false
@@ -488,8 +488,8 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
      * @since 0.9.0
      *
      * @param  array<int, object>  $data  List of post data.
-     * @param  array  $atts  Attributes passed with the original shortcode.
-     * @return array Array of objects representing individual posts.
+     * @param  array<string, mixed>  $atts  Attributes passed with the original shortcode.
+     * @return array<int|string, object> Array of objects representing individual posts.
      */
     public function process_remote_posts($data, $atts): array
     {
@@ -595,9 +595,9 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
      *
      * @since 0.9.0
      *
-     * @param  array  $data  Array of post data.
-     * @param  array  $atts  Attributes passed with the original shortcode.
-     * @return array Array of objects representing individual posts.
+     * @param  array<int, array<string, mixed>>  $data  Array of post data.
+     * @param  array<string, mixed>  $atts  Attributes passed with the original shortcode.
+     * @return array<int|string, object> Array of objects representing individual posts.
      */
     public function process_local_posts($data, $atts): array
     {
@@ -612,9 +612,9 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
 
             // Only a subset of data is returned for a headlines request.
             if ($atts['output'] === 'headlines') {
-                $subset->link = $post->link;
-                $subset->date = $post->date;
-                $subset->title = $post->title->rendered;
+                $subset->link = $post['link'];
+                $subset->date = $post['date'];
+                $subset->title = $post['title']['rendered'];
             } else {
                 $subset->ID = $post['id'];
                 $subset->date = $post['date']; // In time zone of requested site
@@ -668,8 +668,8 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
              * @since 0.7.10
              *
              * @param  object  $subset  Data attached to this result.
-             * @param  object  $post  Data for an individual post retrieved via `wp-json/posts` from a remote host.
-             * @param  array  $atts  Attributes originally passed to the `uamswp_news` shortcode.
+             * @param  array<string, mixed>  $post  Data for an individual post retrieved through `rest_do_request()` on this site.
+             * @param  array<string, mixed>  $atts  Attributes originally passed to the `uamswp_news` shortcode.
              */
             $subset = apply_filters('uams_content_syndication_host_data', $subset, $post, $atts);
 

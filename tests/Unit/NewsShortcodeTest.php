@@ -55,10 +55,7 @@ beforeEach(function (): void {
     // Stub only the WordPress boundary, leaving the News implementation real.
     stubEscapeFunctions();
     stubTranslationFunctions();
-    $this->registeredNews = [];
-    when('add_shortcode')->alias(function (string $tag, array $callback): void {
-        $this->registeredNews[$tag] = $callback;
-    });
+    when('add_shortcode')->justReturn();
     when('shortcode_atts')->alias(fn (array $defaults, array $atts): array => array_replace($defaults, array_intersect_key($atts, $defaults)));
     when('trailingslashit')->alias(fn (string $value): string => rtrim($value, '/').'/');
     when('wp_parse_url')->alias(fn (string $url, int $component = -1): mixed => parse_url($url, $component));
@@ -189,20 +186,23 @@ it('returns empty normalized data for empty inputs', function (): void {
         ->and($this->news->process_local_posts(null, ['output' => 'cards']))->toBe([]);
 });
 
-it('currently raises a property warning for local REST array headlines', function (): void {
-    // Promote the production warning to an assertion instead of suppressing it.
+it('reduces local REST array headlines to link, date and title', function (): void {
+    // Promote any warning to an exception, so reading an array as an object cannot pass unnoticed.
     $post = ['date' => '2026-03-02T09:11:13', 'link' => 'https://local.example/story', 'title' => ['rendered' => 'Local title']];
     set_error_handler(static function (int $severity, string $message): never {
         throw new ErrorException($message, 0, $severity);
     });
 
-    // Restore the runner's handler even when the expected defect is observed.
+    // Restore the runner's handler even when an assertion fails.
     try {
-        expect(fn (): array => $this->news->process_local_posts([$post], ['output' => 'headlines']))
-            ->toThrow(ErrorException::class, 'Attempt to read property "link" on array');
+        $data = $this->news->process_local_posts([$post], ['output' => 'headlines']);
     } finally {
         restore_error_handler();
     }
+
+    expect(array_map(fn (object $item): array => (array) $item, array_values($data)))->toBe([
+        ['link' => 'https://local.example/story', 'date' => '2026-03-02T09:11:13', 'title' => 'Local title'],
+    ]);
 });
 
 it('currently raises an image-property warning when rendering remote cards without media', function (): void {
@@ -635,10 +635,14 @@ it('does not cache remote errors or 404 responses', function (bool $error, int $
 })->with([[true, 200], [false, 404]]);
 
 it('registers the News shortcode and stylesheet hook on construction', function (): void {
+    $registered = [];
+    when('add_shortcode')->alias(function (string $tag, array $callback) use (&$registered): void {
+        $registered[$tag] = $callback;
+    });
     $news = new UAMS_Syndicate_Shortcode_News;
-    expect($news->shortcode_name)->toBe('uamswp_news')
-        ->and($this->registeredNews)->toBe(['uamswp_news' => [$news, 'display_shortcode']])
-        ->and(has_action('wp_enqueue_scripts', [$news, 'enqueue_syndication_stylesheet']))->toBe(10);
+    expect($news->shortcode_name)->toBe('uamswp_news');
+    expect($registered)->toBe(['uamswp_news' => [$news, 'display_shortcode']]);
+    expect(has_action('wp_enqueue_scripts', [$news, 'enqueue_syndication_stylesheet']))->toBe(10);
 });
 
 it('enqueues News styles only when the current post contains its shortcode', function (bool $hasPost, bool $hasShortcode): void {

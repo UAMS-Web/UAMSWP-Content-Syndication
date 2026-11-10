@@ -202,14 +202,14 @@ final class NewsRestTest extends IntegrationTestCase
     }
 
     /**
-     * Pin the current local-headlines array/object mismatch as a known failure.
+     * Pin local headlines rendering the title of a native REST array response.
      */
-    public function test_local_headlines_currently_reads_array_response_as_object(): void
+    public function test_local_headlines_render_array_response_titles(): void
     {
-        // Seed a nonempty native REST collection to reach the broken branch.
-        self::factory()->post->create();
+        // Seed a nonempty native REST collection to reach the headlines branch.
+        self::factory()->post->create(['post_title' => 'Local headline fixture']);
 
-        // Turn the native warning into an asserted exception, not hidden noise.
+        // Turn a native warning into an exception, so reading an array as an object cannot pass unnoticed.
         set_error_handler(static function (
             int $severity,
             string $message
@@ -219,11 +219,11 @@ final class NewsRestTest extends IntegrationTestCase
 
         // Dispatch the real request and restore the framework error handler.
         try {
-            $this->expectException(ErrorException::class);
-            $this->expectExceptionMessage('Attempt to read property');
-            do_shortcode('[uamswp_news site="'.home_url('/').'" output="headlines"]');
+            $output = do_shortcode('[uamswp_news site="'.home_url('/').'" output="headlines"]');
         } finally {
             restore_error_handler();
         }
+
+        $this->assertStringContainsString('Local headline fixture</a>', $output);
     }
 }
