@@ -25,7 +25,7 @@ covers(UAMS_Syndicate_Shortcode_News::class);
  */
 function newsRemotePost(): stdClass
 {
-    return json_decode(json_encode([
+    $post = json_decode(json_encode([
         'id' => 37,
         'date' => '2026-03-02T09:11:13',
         'modified' => '2026-04-05T12:14:16',
@@ -49,6 +49,29 @@ function newsRemotePost(): stdClass
             'author' => [['name' => 'Distinct author']],
         ],
     ], JSON_THROW_ON_ERROR), false, 512, JSON_THROW_ON_ERROR);
+
+    if (! $post instanceof stdClass) {
+        throw new UnexpectedValueException('The fixture did not decode to an object.');
+    }
+
+    return $post;
+}
+
+/**
+ * The same payload as a local REST response carries it: decoded to arrays.
+ *
+ * @param  stdClass|null  $source  Remote post to convert, the stock fixture by default.
+ * @return array<mixed> Local post fixture.
+ */
+function newsLocalPost(?stdClass $source = null): array
+{
+    $post = json_decode(json_encode($source ?? newsRemotePost(), JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+
+    if (! is_array($post)) {
+        throw new UnexpectedValueException('The fixture did not decode to an array.');
+    }
+
+    return $post;
 }
 
 beforeEach(function (): void {
@@ -61,7 +84,7 @@ beforeEach(function (): void {
     when('wp_parse_url')->alias(fn (string $url, int $component = -1): mixed => parse_url($url, $component));
     when('get_home_url')->justReturn('https://local.example');
     when('is_multisite')->justReturn(false);
-    when('absint')->alias(fn (mixed $value): int => abs((int) $value));
+    when('absint')->alias(fn (mixed $value): int => abs(is_numeric($value) ? (int) $value : 0));
     when('wp_json_encode')->alias(fn (mixed $value): string => json_encode($value, JSON_THROW_ON_ERROR));
     when('wp_kses_post')->returnArg();
     when('do_shortcode')->alias(fn (string $value): string => 'expanded:'.$value);
@@ -234,7 +257,7 @@ it('uses the current time for undated remote and local posts', function (): void
     $post = newsRemotePost();
     $post->date = '';
 
-    $local = json_decode(json_encode($post, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+    $local = newsLocalPost($post);
     $local['featured_media'] = 0;
 
     // Assert both normalizers use the current clock and distinct collision keys.
@@ -248,11 +271,11 @@ it('uses the current time for undated remote and local posts', function (): void
 
 it('normalizes local array posts without inventing remote-only media fields', function (string $output): void {
     // Use the actual array shape returned by a local REST response.
-    $post = json_decode(json_encode(newsRemotePost(), JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+    $post = newsLocalPost();
     $post['featured_media'] = 0;
     $expected = [
-        'ID' => 37, 'date' => $post['date'], 'link' => $post['link'],
-        'modified' => $post['modified'], 'title' => 'Distinct title',
+        'ID' => 37, 'date' => '2026-03-02T09:11:13', 'link' => 'https://remote.example/story',
+        'modified' => '2026-04-05T12:14:16', 'title' => 'Distinct title',
         'content' => '<p>Ordinary content</p>', 'excerpt' => '<b>Brief excerpt</b>',
     ];
     if ($output === 'full') {
@@ -263,7 +286,7 @@ it('normalizes local array posts without inventing remote-only media fields', fu
 
     // Verify every field and duplicate-date key through the public method.
     $data = $this->news->process_local_posts([$post, $post], ['output' => $output]);
-    expect(array_keys($data))->toBe([strtotime($post['date']), strtotime($post['date']) + 1])
+    expect(array_keys($data))->toBe([strtotime('2026-03-02T09:11:13'), strtotime('2026-03-02T09:11:13') + 1])
         ->and((array) array_values($data)[0])->toBe($expected);
 })->with(['json', 'full']);
 
@@ -274,9 +297,13 @@ it('normalizes local REST media fallbacks and author responses through mocked di
     $media = ['media_details' => ['sizes' => []], 'source_url' => 'original-local.jpg'];
     $author = ['name' => 'Local author'];
     when('rest_do_request')->alias(function (stdClass $request) use (&$media, &$author): object {
-        return (object) ['data' => $request->fixture_route === 'author-route' ? $author : $media];
+        return (object) ['data' => match ($request->fixture_route) {
+            'author-route' => $author,
+            'media-route' => $media,
+            default => [],
+        }];
     });
-    $post = json_decode(json_encode(newsRemotePost(), JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+    $post = newsLocalPost();
     $post['author'] = 19;
     $post['_links'] = ['wp:featuredmedia' => [['href' => 'media-route']], 'author' => [['href' => 'author-route']]];
 
@@ -309,7 +336,7 @@ it('allows the host-data filter to replace normalized remote and local results',
     // Replace rather than merely decorate the normalized value.
     expectApplied('uams_content_syndication_host_data')->twice()->andReturnUsing(fn (object $subset, mixed $post, array $atts): object => (object) ['filtered' => $atts['output']]);
     $post = newsRemotePost();
-    $local = json_decode(json_encode($post, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+    $local = newsLocalPost($post);
     $local['featured_media'] = 0;
 
     // Observe the filter's result in both public return values.
@@ -322,7 +349,7 @@ it('skips linked local REST resources whose URL cannot become a request', functi
     $requests = Mockery::mock('alias:WP_REST_Request');
     $requests->shouldReceive('from_url')->andReturn(false);
     Functions\expect('rest_do_request')->never();
-    $post = json_decode(json_encode(newsRemotePost(), JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+    $post = newsLocalPost();
     $post['author'] = 19;
     $post['_links'] = ['wp:featuredmedia' => [['href' => 'media-route']], 'author' => [['href' => 'author-route']]];
 
@@ -427,7 +454,7 @@ it('caches local REST misses for both accepted and rejected statuses', function 
     when('wp_cache_get')->justReturn(false);
     when('wp_cache_get_last_changed')->justReturn('generation-rest');
 
-    $post = json_decode(json_encode(newsRemotePost(), JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+    $post = newsLocalPost();
     $post['featured_media'] = 0;
     $status = 200;
     $response = new class([$post], function () use (&$status): int {
@@ -435,7 +462,7 @@ it('caches local REST misses for both accepted and rejected statuses', function 
     })
     {
         /**
-         * @param  array<int, array<string, mixed>>  $data
+         * @param  array<mixed>  $data
          */
         public function __construct(public array $data, private Closure $statusReader) {}
 
@@ -446,8 +473,11 @@ it('caches local REST misses for both accepted and rejected statuses', function 
     };
     when('rest_do_request')->justReturn($response);
     $stored = [];
-    when('wp_cache_set')->alias(function (string $key, mixed $data, string $group) use (&$stored): bool {
+    $storedTitle = null;
+    when('wp_cache_set')->alias(function (string $key, mixed $data, string $group) use (&$stored, &$storedTitle): bool {
         $stored = [$key, $data, $group];
+        $first = is_array($data) ? array_values($data)[0] ?? null : null;
+        $storedTitle = $first instanceof stdClass ? $first->title : null;
 
         return true;
     });
@@ -459,7 +489,7 @@ it('caches local REST misses for both accepted and rejected statuses', function 
         expect($stored[0])->toBe(md5('https://local.example/wp-json/wp/v2/posts?_embed=').':generation-rest')
             ->and($stored[2])->toBe('uamswp-content');
         if ($code === 200) {
-            expect(array_values($stored[1])[0]->title)->toBe('Distinct title')
+            expect($storedTitle)->toBe('Distinct title')
                 ->and($html)->toContain('Distinct title');
         } else {
             expect($stored[1])->toBeFalse()
@@ -585,7 +615,7 @@ it('normalizes and caches merged local REST misses only on exact success', funct
     when('wp_cache_get_last_changed')->justReturn('generation-merge');
     when('wp_cache_get')->alias(fn (string $key, string $group): array|false => $group === 'uamswp_news' ? [] : false);
 
-    $post = json_decode(json_encode(newsRemotePost(), JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+    $post = newsLocalPost();
     $post['featured_media'] = 0;
     $status = 200;
     $response = new class([$post], function () use (&$status): int {
@@ -593,7 +623,7 @@ it('normalizes and caches merged local REST misses only on exact success', funct
     })
     {
         /**
-         * @param  array<int, array<string, mixed>>  $data
+         * @param  array<mixed>  $data
          */
         public function __construct(public array $data, private Closure $statusReader) {}
 
@@ -604,8 +634,11 @@ it('normalizes and caches merged local REST misses only on exact success', funct
     };
     when('rest_do_request')->justReturn($response);
     $stored = ['', null, ''];
-    when('wp_cache_set')->alias(function (string $key, mixed $data, string $group) use (&$stored): bool {
+    $storedTitle = null;
+    when('wp_cache_set')->alias(function (string $key, mixed $data, string $group) use (&$stored, &$storedTitle): bool {
         $stored = [$key, $data, $group];
+        $first = is_array($data) ? array_values($data)[0] ?? null : null;
+        $storedTitle = $first instanceof stdClass ? $first->title : null;
 
         return true;
     });
@@ -617,7 +650,7 @@ it('normalizes and caches merged local REST misses only on exact success', funct
         expect($stored[0])->toBe(md5('https://remote.example/wp-json/wp/v2/posts?per_page=1&_embed=').':generation-merge')
             ->and($stored[2])->toBe('uamswp-content');
         if ($code === 200) {
-            expect(array_values($stored[1])[0]->title)->toBe('Distinct title')
+            expect($storedTitle)->toBe('Distinct title')
                 ->and($html)->toContain('Distinct title');
         } else {
             expect($stored[1])->toBe([])
@@ -727,4 +760,13 @@ it('advertises the current Shortcake attribute names and numeric boundaries', fu
         ],
         'post_type' => ['post', 'page'],
     ]]);
+});
+
+it('keeps only post objects from a cached or decoded list', function (): void {
+    $keep = new stdClass;
+    $method = new ReflectionMethod($this->news, 'posts');
+
+    expect($method->invoke($this->news, ['a' => $keep, 'junk', 3 => ['array']]))->toBe(['a' => $keep])
+        ->and($method->invoke($this->news, false))->toBeNull()
+        ->and($method->invoke($this->news, []))->toBe([]);
 });

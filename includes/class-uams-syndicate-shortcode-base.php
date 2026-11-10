@@ -134,6 +134,66 @@ class UAMS_Syndicate_Shortcode_Base
     }
 
     /**
+     * Read an attribute as a string, whatever type the shortcode supplied.
+     *
+     * @param  array<string, mixed>  $atts  List of attributes used for the shortcode.
+     * @param  string  $key  Attribute name.
+     * @return string The attribute as a string, or an empty string when it is missing or not a scalar.
+     */
+    public function string_att(array $atts, string $key): string
+    {
+        return $this->to_string($atts[$key] ?? '');
+    }
+
+    /**
+     * Read an attribute as a non-negative integer, whatever type the shortcode supplied.
+     *
+     * @param  array<string, mixed>  $atts  List of attributes used for the shortcode.
+     * @param  string  $key  Attribute name.
+     * @return int The absolute integer value, or zero when the attribute is missing or not a scalar.
+     */
+    public function absint_att(array $atts, string $key): int
+    {
+        $value = $atts[$key] ?? 0;
+
+        return is_scalar($value) ? absint($value) : 0;
+    }
+
+    /**
+     * Read a value nested inside decoded REST data.
+     *
+     * @param  mixed  $source  Decoded REST data, as arrays or objects.
+     * @param  string|int  ...$path  Keys to follow, outermost first.
+     * @return mixed The value found, or null when any step is missing.
+     */
+    public function value_at(mixed $source, string|int ...$path): mixed
+    {
+        $value = $source;
+        foreach ($path as $key) {
+            if (is_array($value)) {
+                $value = $value[$key] ?? null;
+            } elseif (is_object($value)) {
+                $value = $value->{$key} ?? null;
+            } else {
+                return null;
+            }
+        }
+
+        return $value;
+    }
+
+    /**
+     * Convert a scalar to a string.
+     *
+     * @param  mixed  $value  Value to convert.
+     * @return string The value as a string, or an empty string when it is not a scalar.
+     */
+    public function to_string(mixed $value): string
+    {
+        return is_scalar($value) ? (string) $value : '';
+    }
+
+    /**
      * Create a hash of all attributes to use as a cache key. If any attribute changes,
      * then the cache will regenerate on the next load.
      *
@@ -172,7 +232,7 @@ class UAMS_Syndicate_Shortcode_Base
      *
      * @param  array<string, mixed>  $site_url  Contains host and path of the requested URL.
      * @param  array<string, mixed>  $atts  Contains the original shortcode attributes.
-     * @return array<string, mixed> List of request information.
+     * @return array{url: string, scheme: mixed, site_id: int|string|false} List of request information.
      */
     public function build_initial_request($site_url, $atts): array
     {
@@ -202,7 +262,7 @@ class UAMS_Syndicate_Shortcode_Base
             }
         }
 
-        $request_url = esc_url($url_scheme.'://'.$site_url['host'].$site_url['path'].$this->default_path).$atts['query'];
+        $request_url = esc_url($url_scheme.'://'.$this->string_att($site_url, 'host').$this->string_att($site_url, 'path').$this->default_path).$this->string_att($atts, 'query');
 
         return [
             'url' => $request_url,
@@ -221,9 +281,9 @@ class UAMS_Syndicate_Shortcode_Base
     {
         // If a site attribute is provided, it overrides the host attribute.
         if (! empty($atts['site'])) {
-            $site_url = trailingslashit(esc_url($atts['site']));
+            $site_url = trailingslashit(esc_url($this->string_att($atts, 'site')));
         } else {
-            $site_url = trailingslashit(esc_url($atts['host']));
+            $site_url = trailingslashit(esc_url($this->string_att($atts, 'host')));
         }
 
         $site_url = wp_parse_url($site_url);
@@ -249,28 +309,28 @@ class UAMS_Syndicate_Shortcode_Base
 
         if (! empty($atts['advanced_cat'])) {
             // $terms = $this->sanitized_terms( $atts['university_location_slug'] );
-            $terms = $this->sanitized_ids($atts['advanced_cat']);
+            $terms = $this->sanitized_ids($this->string_att($atts, 'advanced_cat'));
             $request_url = add_query_arg([
                 'filter[cat]' => $terms,
             ], $request_url);
         }
 
         if (! empty($atts['site_category_slug'])) {
-            $terms = $this->sanitized_terms($atts['site_category_slug']);
+            $terms = $this->sanitized_terms($this->string_att($atts, 'site_category_slug'));
             $request_url = add_query_arg([
                 'filter[category_name]' => $terms,
             ], $request_url);
         }
 
         if (! empty($atts['tag'])) {
-            $terms = $this->sanitized_terms($atts['tag']);
+            $terms = $this->sanitized_terms($this->string_att($atts, 'tag'));
             $request_url = add_query_arg([
                 'filter[tag]' => $terms,
             ], $request_url);
         }
 
         if (! empty($atts['id'])) {
-            $terms = $this->sanitized_ids($atts['id']);
+            $terms = $this->sanitized_ids($this->string_att($atts, 'id'));
             $request_url = add_query_arg([
                 'filter[p]' => $terms,
             ], $request_url);

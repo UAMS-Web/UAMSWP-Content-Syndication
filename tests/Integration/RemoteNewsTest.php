@@ -168,10 +168,8 @@ final class RemoteNewsTest extends IntegrationTestCase
             $body
         ): array {
             $calls++;
-            $response = $this->response($body);
-            $response['response']['code'] = $status;
 
-            return $response;
+            return ['headers' => [], 'body' => $body, 'response' => ['code' => $status, 'message' => 'OK']];
         });
 
         // Pin which failures are retried and which become cached empty arrays.
