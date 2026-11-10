@@ -182,10 +182,10 @@ it('isolates cached content by shortcode and all attributes including cache bust
 it('adds only populated taxonomy filters after the extension filter', function (): void {
     // Expose query values without duplicating the plugin's decision logic.
     when('add_query_arg')->alias(function (array $args, string $url): string {
-        $parts = parse_url($url);
+        $parts = (array) parse_url($url);
         parse_str($parts['query'] ?? '', $query);
 
-        return $parts['scheme'].'://'.$parts['host'].$parts['path'].'?'.http_build_query(array_replace($query, $args));
+        return ($parts['scheme'] ?? '').'://'.($parts['host'] ?? '').($parts['path'] ?? '').'?'.http_build_query(array_replace($query, $args));
     });
     when('sanitize_key')->alias(fn (string $key): string => preg_replace('/[^a-z0-9_\-]/', '', strtolower($key)));
     expectApplied('uamswp_content_syndicate_taxonomy_filters')->twice()
@@ -200,7 +200,7 @@ it('adds only populated taxonomy filters after the extension filter', function (
         'advanced_cat' => '-4,9x', 'site_category_slug' => 'Press!,Health',
         'tag' => 'Topic_A,SCIENCE', 'id' => '15,bad',
     ], $url);
-    parse_str(parse_url($filtered, PHP_URL_QUERY), $query);
+    parse_str((string) parse_url($filtered, PHP_URL_QUERY), $query);
     expect($query)->toBe([
         'extension' => 'kept', 'filter' => [
             'cat' => '-4,9', 'category_name' => 'press,health',
@@ -218,6 +218,19 @@ it('normalizes the legacy local scheme without mistaking another path for home',
     ))->toBe([
         'url' => 'https://same.example/two/wp-json/wp/v2/pages?status=publish',
         'scheme' => 'http', 'site_id' => false,
+    ]);
+});
+
+it('treats a home URL without a host as a different site', function (): void {
+    // A relative home URL parses to a path only, so it cannot match the requested host.
+    when('get_home_url')->justReturn('/relative');
+
+    expect($this->shortcode->build_initial_request(
+        ['host' => 'same.example', 'path' => '/'],
+        ['scheme' => 'https', 'query' => 'pages'],
+    ))->toBe([
+        'url' => 'https://same.example/wp-json/wp/v2/pages',
+        'scheme' => 'https', 'site_id' => false,
     ]);
 });
 
