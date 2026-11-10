@@ -269,3 +269,33 @@ it('round trips signed integer lists across deterministic generated inputs', fun
         expect($this->shortcode->sanitized_ids(implode(',', $input)))->toBe(implode(',', $expected));
     }
 });
+
+it('reads shortcode attributes as strings and non-negative integers', function (): void {
+    when('absint')->alias(fn (mixed $value): int => abs(is_numeric($value) ? (int) $value : 0));
+    $atts = ['name' => 'story', 'count' => '-7', 'flag' => true, 'list' => ['a']];
+
+    expect($this->shortcode->string_att($atts, 'name'))->toBe('story')
+        ->and($this->shortcode->string_att($atts, 'flag'))->toBe('1')
+        ->and($this->shortcode->string_att($atts, 'list'))->toBe('')
+        ->and($this->shortcode->string_att($atts, 'missing'))->toBe('')
+        ->and($this->shortcode->absint_att($atts, 'count'))->toBe(7)
+        ->and($this->shortcode->absint_att($atts, 'list'))->toBe(0)
+        ->and($this->shortcode->absint_att($atts, 'missing'))->toBe(0);
+});
+
+it('follows a path through decoded REST arrays and objects', function (): void {
+    $source = ['a' => (object) ['b' => ['c' => 5]], 'z' => 'text'];
+
+    expect($this->shortcode->value_at($source, 'a', 'b', 'c'))->toBe(5)
+        ->and($this->shortcode->value_at($source))->toBe($source)
+        ->and($this->shortcode->value_at($source, 'a', 'missing', 'c'))->toBeNull()
+        ->and($this->shortcode->value_at($source, 'z', 'deeper'))->toBeNull()
+        ->and($this->shortcode->value_at([['k' => 'v']], 0, 'k'))->toBe('v');
+});
+
+it('converts only scalars to strings', function (): void {
+    expect($this->shortcode->to_string(12))->toBe('12')
+        ->and($this->shortcode->to_string(false))->toBe('')
+        ->and($this->shortcode->to_string(null))->toBe('')
+        ->and($this->shortcode->to_string(['x']))->toBe('');
+});

@@ -84,11 +84,13 @@ final class NewsRestTest extends IntegrationTestCase
         $this->assertIsString($permalink);
         $this->go_to($permalink);
         $originalPost = $GLOBALS['post'];
+        $this->assertInstanceOf(\WP_Post::class, $originalPost);
 
         // Assert the known leak, then restore the fixture state explicitly.
         try {
             $this->assertSame($page, $originalPost->ID);
             $this->assertStringContainsString('REST result', do_shortcode('[uamswp_news site="'.home_url('/').'"]'));
+            $this->assertInstanceOf(\WP_Post::class, $GLOBALS['post']);
             $this->assertSame($post, $GLOBALS['post']->ID);
             $this->assertNotSame($originalPost, $GLOBALS['post']);
         } finally {
@@ -185,7 +187,10 @@ final class NewsRestTest extends IntegrationTestCase
         $post = self::factory()->post->create(['post_title' => 'Plain permalink fixture']);
         $response = rest_do_request(new WP_REST_Request('GET', '/wp/v2/posts'));
         $this->assertSame(200, $response->get_status());
-        $this->assertSame($post, $response->get_data()[0]['id']);
+        $data = $response->get_data();
+        $this->assertIsArray($data);
+        $this->assertIsArray($data[0]);
+        $this->assertSame($post, $data[0]['id']);
 
         // Pin rejection of the hard-coded pretty URL and the shortcode's result.
         $this->assertFalse(WP_REST_Request::from_url(home_url('/wp-json/wp/v2/posts')));

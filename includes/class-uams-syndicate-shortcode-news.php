@@ -186,14 +186,14 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
         $request_url = $this->build_taxonomy_filters($atts, $request['url']);
 
         if (! empty($atts['offset'])) {
-            $atts['count'] = absint($atts['count']) + absint($atts['offset']);
+            $atts['count'] = $this->absint_att($atts, 'count') + $this->absint_att($atts, 'offset');
         }
         if ($atts['count']) {
             // At exactly 100 both branches normalize to the same request count.
             // @pest-mutate-ignore: GreaterToGreaterOrEqual, DecrementInteger
-            $count = (absint($atts['count']) > 100)
+            $count = ($this->absint_att($atts, 'count') > 100)
                 ? 100
-                : $atts['count'];
+                : $this->absint_att($atts, 'count');
             $request_url = add_query_arg([
                 'per_page' => absint($count),
             ], $request_url);
@@ -217,23 +217,21 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
         if ($request['scheme'] === 'local') {
             $last_changed = wp_cache_get_last_changed('uamswp-content');
             $cache_key = md5($request_url).':'.$last_changed;
-            $new_data = wp_cache_get($cache_key, 'uamswp-content');
-            if (! is_array($new_data)) {
+            $new_data = $this->posts(wp_cache_get($cache_key, 'uamswp-content'));
+            if ($new_data === null) {
                 $response = $this->dispatch_local_request($request_url);
                 if ($response !== null && $response->get_status() === 200) {
-                    $new_data = $this->process_local_posts($response->data, $atts);
+                    $new_data = $this->process_local_posts($this->records($response->data), $atts);
                 }
-                wp_cache_set($cache_key, $new_data, 'uamswp-content');
+                wp_cache_set($cache_key, $new_data ?? false, 'uamswp-content');
             }
         } else {
-            $new_data = $this->get_content_cache($atts, 'uamswp_news');
-            if (! is_array($new_data)) {
+            $new_data = $this->posts($this->get_content_cache($atts, 'uamswp_news'));
+            if ($new_data === null) {
                 $response = wp_remote_get($request_url);
                 if (! is_wp_error($response) && wp_remote_retrieve_response_code($response) !== 404) {
                     $data = wp_remote_retrieve_body($response);
-                    $data = json_decode($data);
-                    $data ??= [];
-                    $new_data = $this->process_remote_posts($data, $atts);
+                    $new_data = $this->process_remote_posts($this->posts(json_decode($data)) ?? [], $atts);
                     // Store the built content in cache for repeated use.
                     $this->set_content_cache($atts, 'uamswp_news', $new_data);
                 }
@@ -244,7 +242,7 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
             $new_data = [];
         }
 
-        if (absint($atts['local_count']) !== 0) {
+        if ($this->absint_att($atts, 'local_count') !== 0) {
             $local_atts = [];
             foreach ($atts as $attribute => $value) {
                 if (stripos($attribute, 'local_') === 0) {
@@ -260,21 +258,21 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
                 $request_url = $this->build_taxonomy_filters($local_atts, $request['url']);
                 // Keep the returned cap mutable, ignoring only the equivalent boundary.
                 // @pest-mutate-ignore: GreaterToGreaterOrEqual, DecrementInteger
-                $local_count = (absint($local_atts['count']) > 100)
+                $local_count = ($this->absint_att($local_atts, 'count') > 100)
                     ? 100
-                    : $local_atts['count'];
+                    : $this->absint_att($local_atts, 'count');
                 $request_url = add_query_arg([
                     'per_page' => absint($local_count),
                     '_embed' => '',
                 ], $request_url);
                 $last_changed = wp_cache_get_last_changed('uamswp-content');
                 $cache_key = md5($request_url).':'.$last_changed;
-                $local_data = wp_cache_get($cache_key, 'uamswp-content');
-                if (! is_array($local_data)) {
+                $local_data = $this->posts(wp_cache_get($cache_key, 'uamswp-content'));
+                if ($local_data === null) {
                     $response = $this->dispatch_local_request($request_url);
                     $local_data = [];
                     if ($response !== null && $response->get_status() === 200) {
-                        $local_data = $this->process_local_posts($response->data, $atts);
+                        $local_data = $this->process_local_posts($this->records($response->data), $atts);
                     }
                     wp_cache_set($cache_key, $local_data, 'uamswp-content');
                 }
@@ -288,7 +286,7 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
         // Only provide a count to match the total count, the array may be larger if local
         // items are also requested.
         if ($atts['count']) {
-            $new_data = array_slice($new_data, 0, $atts['count'], false);
+            $new_data = array_slice($new_data, 0, $this->absint_att($atts, 'count'), false);
         }
 
         $content = apply_filters('uamswp_content_syndicate_news_output', false, $new_data, $atts);
@@ -317,7 +315,7 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
         if ($atts['output'] === 'json') {
             echo '<!-- UAMSWP Output JSON -->';
             // print_r ($new_data);
-            echo '<script>var '.esc_js($atts['object']).' = '.wp_json_encode($new_data).';</script>';
+            echo '<script>var '.esc_js($this->string_att($atts, 'object')).' = '.wp_json_encode($new_data).';</script>';
         } elseif ($atts['output'] === 'headlines') {
             ?>
             <!-- UAMSWP Output Headlines -->
@@ -326,7 +324,7 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
 					<?php
                     $offset_x = 0;
             foreach ($new_data as $content) {
-                if ($offset_x < absint($atts['offset'])) {
+                if ($offset_x < $this->absint_att($atts, 'offset')) {
                     $offset_x++;
 
                     continue;
@@ -345,7 +343,7 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
 					<?php
                     $offset_x = 0;
             foreach ($new_data as $content) {
-                if ($offset_x < absint($atts['offset'])) {
+                if ($offset_x < $this->absint_att($atts, 'offset')) {
                     $offset_x++;
 
                     continue;
@@ -356,7 +354,7 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
 							<a class="content-item-thumbnail" href="<?php echo esc_url($content->link); ?>" itemprop="image" itemscope itemtype="https://schema.org/ImageObject"><?php if ($content->thumbnail) { ?><img src="<?php echo esc_url($content->thumbnail); ?>" alt="<?php echo esc_html($content->thumbalt); ?>" itemprop="url"><?php } ?></a>
 							<span class="content-item-title" itemprop="headline"><a href="<?php echo esc_url($content->link); ?>" class="news-link" itemprop="url"><?php echo esc_html($content->title); ?></a></span>
 							<span class="content-item-byline">
-								<span class="content-item-byline-date" itemprop="datePublished" content="<?php echo esc_html(date('c', strtotime($content->date))); ?>"><small><?php echo esc_html(date($atts['date_format'], strtotime($content->date))); ?> | </small></span>
+								<span class="content-item-byline-date" itemprop="datePublished" content="<?php echo esc_html(date('c', strtotime($content->date))); ?>"><small><?php echo esc_html(date($this->string_att($atts, 'date_format'), strtotime($content->date))); ?> | </small></span>
 								<meta itemprop="dateModified" content="<?php echo esc_html(date('c', strtotime($content->date))); ?>"/>
 								<span class="content-item-byline-author" itemprop="author" itemscope itemtype="http://schema.org/Person"><small itemprop="name"><?php echo esc_html($content->author_name); ?></small></span>
 							</span>
@@ -384,7 +382,7 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
 					<?php
                     $offset_x = 0;
             foreach ($new_data as $content) {
-                if ($offset_x < absint($atts['offset'])) {
+                if ($offset_x < $this->absint_att($atts, 'offset')) {
                     $offset_x++;
 
                     continue;
@@ -431,7 +429,7 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
 					<?php
                     $offset_x = 0;
             foreach ($new_data as $content) {
-                if ($offset_x < absint($atts['offset'])) {
+                if ($offset_x < $this->absint_att($atts, 'offset')) {
                     $offset_x++;
 
                     continue;
@@ -445,7 +443,7 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
 							</div>
 							<span class="content-item-title"><a href="<?php echo esc_url($content->link); ?>" itemprop="url"><?php echo '<h2 itemprop="headline">'.esc_html($content->title).'</h2>'; ?></a></span>
 							<div class="content-item-byline">
-								<!-- <?php if ($content->date) { ?><span class="content-item-byline-date"><?php echo esc_html(date($atts['date_format'], strtotime($content->date))); ?></span> | <?php } ?>-->
+								<!-- <?php if ($content->date) { ?><span class="content-item-byline-date"><?php echo esc_html(date($this->string_att($atts, 'date_format'), strtotime($content->date))); ?></span> | <?php } ?>-->
 								<?php if ($content->author_name) { ?><span class="content-item-byline-author" itemprop="author" itemscope itemtype="http://schema.org/Person"><span itemprop="name"><?php echo esc_html($content->author_name); ?></span></span><?php } ?>
 								<meta itemprop="datePublished" content="<?php echo esc_html(date('c', strtotime($content->date))); ?>"/>
 					            <meta itemprop="dateModified" content="<?php echo esc_html(date('c', strtotime($content->modified))); ?>"/>
@@ -487,7 +485,7 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
      *
      * @since 0.9.0
      *
-     * @param  array<int, stdClass>  $data  List of post data.
+     * @param  array<int|string, stdClass>  $data  List of post data.
      * @param  array<string, mixed>  $atts  Attributes passed with the original shortcode.
      * @return array<int|string, stdClass> Array of objects representing individual posts.
      */
@@ -591,6 +589,48 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
     }
 
     /**
+     * Keep the post objects from a decoded or cached list.
+     *
+     * @param  mixed  $list  Decoded JSON or a cache read.
+     * @return array<int|string, stdClass>|null Null when the value is not a list, as for a cache miss.
+     */
+    private function posts(mixed $list): ?array
+    {
+        if (! is_array($list)) {
+            return null;
+        }
+
+        $posts = [];
+        foreach ($list as $key => $post) {
+            if ($post instanceof stdClass) {
+                $posts[$key] = $post;
+            }
+        }
+
+        return $posts;
+    }
+
+    /**
+     * Keep the records from a REST response body.
+     *
+     * @param  mixed  $list  Data of a REST response.
+     * @return list<array<mixed>> The array records, in order.
+     */
+    private function records(mixed $list): array
+    {
+        $records = [];
+        if (is_array($list)) {
+            foreach ($list as $record) {
+                if (is_array($record)) {
+                    $records[] = $record;
+                }
+            }
+        }
+
+        return $records;
+    }
+
+    /**
      * Dispatch an internal REST request for a URL on this install.
      *
      * @param  string  $url  Full REST API URL, query string included.
@@ -611,7 +651,7 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
      *
      * @since 0.9.0
      *
-     * @param  array<int, array<string, mixed>>  $data  Array of post data.
+     * @param  list<array<mixed>>  $data  Array of post data.
      * @param  array<string, mixed>  $atts  Attributes passed with the original shortcode.
      * @return array<int|string, stdClass> Array of objects representing individual posts.
      */
@@ -628,38 +668,37 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
 
             // Only a subset of data is returned for a headlines request.
             if ($atts['output'] === 'headlines') {
-                $subset->link = $post['link'];
-                $subset->date = $post['date'];
-                $subset->title = $post['title']['rendered'];
+                $subset->link = $this->value_at($post, 'link');
+                $subset->date = $this->value_at($post, 'date');
+                $subset->title = $this->value_at($post, 'title', 'rendered');
             } else {
-                $subset->ID = $post['id'];
-                $subset->date = $post['date']; // In time zone of requested site
-                $subset->link = $post['link'];
-                $subset->modified = $post['modified']; // Added for schema
+                $subset->ID = $this->value_at($post, 'id');
+                $subset->date = $this->value_at($post, 'date'); // In time zone of requested site
+                $subset->link = $this->value_at($post, 'link');
+                $subset->modified = $this->value_at($post, 'modified'); // Added for schema
 
                 // These fields all provide a rendered version when the response is generated.
-                $subset->title = $post['title']['rendered'];
-                $subset->content = $post['content']['rendered'];
-                $subset->excerpt = $post['excerpt']['rendered'];
+                $subset->title = $this->value_at($post, 'title', 'rendered');
+                $subset->content = $this->value_at($post, 'content', 'rendered');
+                $subset->excerpt = $this->value_at($post, 'excerpt', 'rendered');
                 if ($atts['output'] === 'full') {
-                    $subset->fullcontent = $post['fullcontent'];
+                    $subset->fullcontent = $this->value_at($post, 'fullcontent');
                 }
 
                 $media_response = null;
-                if (! empty($post['featured_media']) && ! empty($post['_links']['wp:featuredmedia'])) {
-                    $media_response = $this->dispatch_local_request($post['_links']['wp:featuredmedia'][0]['href']);
+                if (! empty($post['featured_media']) && ! empty($this->value_at($post, '_links', 'wp:featuredmedia'))) {
+                    $media_response = $this->dispatch_local_request($this->to_string($this->value_at($post, '_links', 'wp:featuredmedia', 0, 'href')));
                 }
 
                 if ($media_response !== null) {
-                    $data = $media_response->data;
-                    $data = $data['media_details']['sizes'];
+                    $media = $media_response->data;
 
-                    if (isset($data['post-thumbnail'])) {
-                        $subset->thumbnail = $data['post-thumbnail']['source_url'];
-                    } elseif (isset($data['thumbnail'])) {
-                        $subset->thumbnail = $data['thumbnail']['source_url'];
+                    if ($this->value_at($media, 'media_details', 'sizes', 'post-thumbnail') !== null) {
+                        $subset->thumbnail = $this->value_at($media, 'media_details', 'sizes', 'post-thumbnail', 'source_url');
+                    } elseif ($this->value_at($media, 'media_details', 'sizes', 'thumbnail') !== null) {
+                        $subset->thumbnail = $this->value_at($media, 'media_details', 'sizes', 'thumbnail', 'source_url');
                     } else {
-                        $subset->thumbnail = $media_response->data['source_url'];
+                        $subset->thumbnail = $this->value_at($media, 'source_url');
                     }
                 } else {
                     $subset->thumbnail = false;
@@ -667,10 +706,10 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
 
                 $subset->author_name = '';
 
-                if (! empty($post['author']) && ! empty($post['_links']['author'])) {
-                    $author_response = $this->dispatch_local_request($post['_links']['author'][0]['href']);
-                    if (isset($author_response->data['name'])) {
-                        $subset->author_name = $author_response->data['name'];
+                if (! empty($post['author']) && ! empty($this->value_at($post, '_links', 'author'))) {
+                    $author_response = $this->dispatch_local_request($this->to_string($this->value_at($post, '_links', 'author', 0, 'href')));
+                    if ($author_response !== null && $this->value_at($author_response->data, 'name') !== null) {
+                        $subset->author_name = $this->value_at($author_response->data, 'name');
                     }
                 }
 
@@ -689,11 +728,10 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
              */
             $subset = apply_filters('uams_content_syndication_host_data', $subset, $post, $atts);
 
-            // Negated, an undated post gets a false key, and the next undated post in the same call collides
-            // with it while `$subset_key++` leaves false unchanged, so the loop below never ends. The undated
-            // test hangs under that mutant, which can only time out, never be killed.
-            // @pest-mutate-ignore: TernaryNegated
-            $subset_key = $post['date'] ? strtotime($post['date']) : time();
+            // An undated post, or a date strtotime() cannot read, takes the current time as its key: a false
+            // key would collide with the next one while `$subset_key++` leaves false unchanged.
+            $post_date = $this->to_string($this->value_at($post, 'date'));
+            $subset_key = $post_date ? (strtotime($post_date) ?: time()) : time();
 
             while (array_key_exists($subset_key, $new_data)) {
                 $subset_key++;

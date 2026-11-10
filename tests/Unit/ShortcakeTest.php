@@ -46,6 +46,7 @@ final class ShortcakeTest extends TestCase
             $news = new UAMS_Syndicate_Shortcode_News;
             $this->assertSame(10, has_action('admin_init', [$news, 'build_shortcake']));
             expect('wp_enqueue_script')->once()->with('uams_syndications_editor_js', '/js/uams-syndication-shortcake.js');
+            $this->assertIsCallable($enqueue);
             $enqueue();
             $this->assertGreaterThan(0, Mockery::getContainer()->mockery_getExpectationCount());
         } finally {
