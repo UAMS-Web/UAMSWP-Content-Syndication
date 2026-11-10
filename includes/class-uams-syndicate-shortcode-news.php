@@ -138,7 +138,7 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
      * the response accordingly.
      *
      * @param  array<string, mixed>  $atts  {
-     *                       Attributes passed with the shortcode.
+     *                                      Attributes passed with the shortcode.
      *
      * @type string $object                   The name of the JSON object to use when output is set to json.
      * @type string $output                   The type of output to display.
