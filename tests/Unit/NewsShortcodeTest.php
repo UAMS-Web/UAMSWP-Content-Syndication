@@ -19,6 +19,47 @@ use function Brain\Monkey\Functions\when;
 covers(UAMS_Syndicate_Shortcode_News::class);
 
 /**
+ * The News shortcode under test, set by `beforeEach` and read by each test.
+ *
+ * Pest binds test state to `$this`, which static analysis types as `mixed`;
+ * a typed accessor keeps every call on the real class.
+ *
+ * @param  UAMS_Syndicate_Shortcode_News|null  $set  A new instance to keep, or null to read.
+ * @return UAMS_Syndicate_Shortcode_News The instance for the running test.
+ */
+function newsShortcode(?UAMS_Syndicate_Shortcode_News $set = null): UAMS_Syndicate_Shortcode_News
+{
+    static $current = null;
+
+    if ($set instanceof UAMS_Syndicate_Shortcode_News) {
+        $current = $set;
+    }
+
+    if (! $current instanceof UAMS_Syndicate_Shortcode_News) {
+        throw new LogicException('No News shortcode was created for this test.');
+    }
+
+    return $current;
+}
+
+/**
+ * The default attributes for a News request, set by `beforeEach`.
+ *
+ * @param  array<string, mixed>|null  $set  New defaults to keep, or null to read.
+ * @return array<string, mixed> The attributes for the running test.
+ */
+function newsAtts(?array $set = null): array
+{
+    static $current = [];
+
+    if ($set !== null) {
+        $current = $set;
+    }
+
+    return $current;
+}
+
+/**
  * Build an asymmetric remote REST payload without loading WordPress.
  *
  * @return stdClass Remote post fixture.
@@ -55,6 +96,21 @@ function newsRemotePost(): stdClass
     }
 
     return $post;
+}
+
+/**
+ * Narrow a decoded fixture value to the object it must be.
+ *
+ * @param  mixed  $value  A nested value of the decoded fixture.
+ * @return stdClass The same value.
+ */
+function newsObject(mixed $value): stdClass
+{
+    if (! $value instanceof stdClass) {
+        throw new UnexpectedValueException('The fixture value is not an object.');
+    }
+
+    return $value;
 }
 
 /**
@@ -97,19 +153,16 @@ beforeEach(function (): void {
     });
     when('wp_cache_get')->justReturn([]);
 
-    $this->newsEditorStyles = [];
     when('plugins_url')->returnArg();
-    when('add_editor_style')->alias(function (string $stylesheet): void {
-        $this->newsEditorStyles[] = $stylesheet;
-    });
-    $this->news = new UAMS_Syndicate_Shortcode_News;
-    $this->newsAtts = ['host' => 'https://remote.example'];
+    when('add_editor_style')->justReturn();
+    newsShortcode(new UAMS_Syndicate_Shortcode_News);
+    newsAtts(['host' => 'https://remote.example']);
 });
 
 it('normalizes every remote field and preserves the full-content distinction', function (string $output): void {
     // Normalize the payload through the public API.
     $post = newsRemotePost();
-    $data = $this->news->process_remote_posts([$post], ['output' => $output]);
+    $data = newsShortcode()->process_remote_posts([$post], ['output' => $output]);
     $expected = [
         'ID' => 37, 'date' => $post->date, 'link' => $post->link,
         'modified' => $post->modified, 'title' => 'Distinct title',
@@ -127,21 +180,21 @@ it('normalizes every remote field and preserves the full-content distinction', f
     ];
 
     // Assert normalized values, including properties absent outside full mode.
-    expect(array_keys($data))->toBe([strtotime($post->date)])
+    expect(array_keys($data))->toBe([newsShortcode()->timestamp($post->date)])
         ->and((array) array_values($data)[0])->toBe($expected);
 })->with(['json', 'excerpts', 'cards', 'full']);
 
 it('uses remote thumbnail fallbacks and leaves missing medium metadata absent', function (string $remove, string $expected): void {
     // Remove progressively preferred image sizes.
     $post = newsRemotePost();
-    $sizes = $post->_embedded->{'wp:featuredmedia'}[0]->media_details->sizes;
+    $sizes = newsObject(newsShortcode()->value_at($post, '_embedded', 'wp:featuredmedia', 0, 'media_details', 'sizes'));
     unset($sizes->{'post-thumbnail'}, $sizes->uams_news);
     if ($remove === 'both') {
         unset($sizes->thumbnail);
     }
 
     // Observe the fallback image and the current partial-property shape.
-    $result = array_values($this->news->process_remote_posts([$post], ['output' => 'cards']))[0];
+    $result = array_values(newsShortcode()->process_remote_posts([$post], ['output' => 'cards']))[0];
     expect($result->thumbnail)->toBe($expected)
         ->and($result->thumbalt)->toBe('Image alternative')
         ->and($result->thumbcaption)->toBe('<i>Image caption</i>')
@@ -156,18 +209,19 @@ it('uses remote thumbnail fallbacks and leaves missing medium metadata absent', 
 it('currently leaves image properties absent when featured media is unavailable', function (string $condition): void {
     // Exercise each guard independently with otherwise usable media.
     $post = newsRemotePost();
+    $embedded = newsObject($post->_embedded);
     if ($condition === 'zero') {
         $post->featured_media = 0;
     } elseif ($condition === 'missing') {
-        unset($post->_embedded->{'wp:featuredmedia'});
+        unset($embedded->{'wp:featuredmedia'});
     } else {
-        $post->_embedded->{'wp:featuredmedia'} = [];
+        $embedded->{'wp:featuredmedia'} = [];
     }
 
-    unset($post->_embedded->author);
+    unset($embedded->author);
 
     // Pin the missing image fields rather than silently repairing production.
-    $result = array_values($this->news->process_remote_posts([$post], ['output' => 'json']))[0];
+    $result = array_values(newsShortcode()->process_remote_posts([$post], ['output' => 'json']))[0];
     expect($result->thumbnail)->toBeFalse()
         ->and($result->author_name)->toBe('')
         ->and(property_exists($result, 'image'))->toBeFalse()
@@ -180,8 +234,8 @@ it('returns only headline fields and allocates consecutive duplicate-date keys',
     $second = clone $post;
     $second->link = 'https://remote.example/second';
 
-    $data = $this->news->process_remote_posts([$post, $second, $post], ['output' => 'headlines']);
-    $timestamp = strtotime($post->date);
+    $data = newsShortcode()->process_remote_posts([$post, $second, $post], ['output' => 'headlines']);
+    $timestamp = newsShortcode()->timestamp($post->date);
 
     // Assert both key allocation and intentionally reduced field selection.
     expect(array_keys($data))->toBe([$timestamp, $timestamp + 1, $timestamp + 2])
@@ -196,17 +250,17 @@ it('normalizes remote author fallbacks for missing and empty embedding', functio
     if ($condition === 'embedding') {
         unset($post->_embedded);
     } else {
-        $post->_embedded->author = [];
+        newsObject($post->_embedded)->author = [];
     }
 
-    expect(array_values($this->news->process_remote_posts([$post], ['output' => 'json']))[0]->author_name)->toBe('');
+    expect(array_values(newsShortcode()->process_remote_posts([$post], ['output' => 'json']))[0]->author_name)->toBe('');
 })->with(['embedding', 'empty author']);
 
 it('returns empty normalized data for empty inputs', function (): void {
-    expect($this->news->process_remote_posts([], ['output' => 'full']))->toBe([])
-        ->and($this->news->process_remote_posts(null, ['output' => 'json']))->toBe([])
-        ->and($this->news->process_local_posts([], ['output' => 'cards']))->toBe([])
-        ->and($this->news->process_local_posts(null, ['output' => 'cards']))->toBe([]);
+    expect(newsShortcode()->process_remote_posts([], ['output' => 'full']))->toBe([])
+        ->and(newsShortcode()->process_remote_posts(null, ['output' => 'json']))->toBe([])
+        ->and(newsShortcode()->process_local_posts([], ['output' => 'cards']))->toBe([])
+        ->and(newsShortcode()->process_local_posts(null, ['output' => 'cards']))->toBe([]);
 });
 
 it('reduces local REST array headlines to link, date and title', function (): void {
@@ -218,7 +272,7 @@ it('reduces local REST array headlines to link, date and title', function (): vo
 
     // Restore the runner's handler even when an assertion fails.
     try {
-        $data = $this->news->process_local_posts([$post], ['output' => 'headlines']);
+        $data = newsShortcode()->process_local_posts([$post], ['output' => 'headlines']);
     } finally {
         restore_error_handler();
     }
@@ -233,7 +287,7 @@ it('currently raises an image-property warning when rendering remote cards witho
     $post = newsRemotePost();
     $post->featured_media = 0;
 
-    when('wp_cache_get')->justReturn($this->news->process_remote_posts([$post], ['output' => 'cards']));
+    when('wp_cache_get')->justReturn(newsShortcode()->process_remote_posts([$post], ['output' => 'cards']));
     $bufferLevel = ob_get_level();
     set_error_handler(static function (int $severity, string $message): never {
         throw new ErrorException($message, 0, $severity);
@@ -241,7 +295,7 @@ it('currently raises an image-property warning when rendering remote cards witho
 
     // Assert the warning and clean up the renderer's interrupted output buffer.
     try {
-        expect(fn (): string => $this->news->display_shortcode($this->newsAtts + ['output' => 'cards']))
+        expect(fn (): string => newsShortcode()->display_shortcode(newsAtts() + ['output' => 'cards']))
             ->toThrow(ErrorException::class, 'Undefined property: stdClass::$image');
     } finally {
         restore_error_handler();
@@ -261,12 +315,24 @@ it('uses the current time for undated remote and local posts', function (): void
     $local['featured_media'] = 0;
 
     // Assert both normalizers use the current clock and distinct collision keys.
-    $remoteKeys = array_keys($this->news->process_remote_posts([$post, $post], ['output' => 'json']));
-    $localKeys = array_keys($this->news->process_local_posts([$local, $local], ['output' => 'json']));
+    $remoteKeys = array_keys(newsShortcode()->process_remote_posts([$post, $post], ['output' => 'json']));
+    $localKeys = array_keys(newsShortcode()->process_local_posts([$local, $local], ['output' => 'json']));
     expect($remoteKeys[0])->toBeGreaterThanOrEqual($before)->toBeLessThanOrEqual(time())
         ->and($localKeys[0])->toBeGreaterThanOrEqual($before)->toBeLessThanOrEqual(time())
         ->and($remoteKeys[1])->toBeGreaterThan($remoteKeys[0])
         ->and($localKeys[1])->toBeGreaterThan($localKeys[0]);
+});
+
+it('keys a remote post with an unreadable date by the current time', function (): void {
+    // An unreadable date must not become a false key that never advances on a collision.
+    $before = time();
+    $post = newsRemotePost();
+    $post->date = 'not a date';
+
+    $keys = array_keys(newsShortcode()->process_remote_posts([$post, $post], ['output' => 'json']));
+
+    expect($keys[0])->toBeGreaterThanOrEqual($before)->toBeLessThanOrEqual(time())
+        ->and($keys[1])->toBe((int) $keys[0] + 1);
 });
 
 it('normalizes local array posts without inventing remote-only media fields', function (string $output): void {
@@ -285,7 +351,7 @@ it('normalizes local array posts without inventing remote-only media fields', fu
     $expected += ['thumbnail' => false, 'author_name' => '', 'terms' => []];
 
     // Verify every field and duplicate-date key through the public method.
-    $data = $this->news->process_local_posts([$post, $post], ['output' => $output]);
+    $data = newsShortcode()->process_local_posts([$post, $post], ['output' => $output]);
     expect(array_keys($data))->toBe([strtotime('2026-03-02T09:11:13'), strtotime('2026-03-02T09:11:13') + 1])
         ->and((array) array_values($data)[0])->toBe($expected);
 })->with(['json', 'full']);
@@ -314,7 +380,7 @@ it('normalizes local REST media fallbacks and author responses through mocked di
         [[], 'original-local.jpg'],
     ] as [$sizes, $expected]) {
         $media['media_details']['sizes'] = $sizes;
-        $result = array_values($this->news->process_local_posts([$post], ['output' => 'full']))[0];
+        $result = array_values(newsShortcode()->process_local_posts([$post], ['output' => 'full']))[0];
         expect($result->thumbnail)->toBe($expected)
             ->and($result->author_name)->toBe('Local author')
             ->and($result->fullcontent)->toBe('<article>Expanded content</article>');
@@ -322,13 +388,13 @@ it('normalizes local REST media fallbacks and author responses through mocked di
 
     // Pin the author fallback when a dispatched response has no name field.
     $author = [];
-    expect(array_values($this->news->process_local_posts([$post], ['output' => 'json']))[0]->author_name)->toBe('');
+    expect(array_values(newsShortcode()->process_local_posts([$post], ['output' => 'json']))[0]->author_name)->toBe('');
 
     // Exercise the first guard on each linked resource independently.
     $author = ['name' => 'Must not fetch this author'];
     $post['featured_media'] = 0;
     $post['author'] = 0;
-    $result = array_values($this->news->process_local_posts([$post], ['output' => 'json']))[0];
+    $result = array_values(newsShortcode()->process_local_posts([$post], ['output' => 'json']))[0];
     expect($result->thumbnail)->toBeFalse()->and($result->author_name)->toBe('');
 });
 
@@ -340,8 +406,8 @@ it('allows the host-data filter to replace normalized remote and local results',
     $local['featured_media'] = 0;
 
     // Observe the filter's result in both public return values.
-    expect((array) array_values($this->news->process_remote_posts([$post], ['output' => 'json']))[0])->toBe(['filtered' => 'json'])
-        ->and((array) array_values($this->news->process_local_posts([$local], ['output' => 'full']))[0])->toBe(['filtered' => 'full']);
+    expect((array) array_values(newsShortcode()->process_remote_posts([$post], ['output' => 'json']))[0])->toBe(['filtered' => 'json'])
+        ->and((array) array_values(newsShortcode()->process_local_posts([$local], ['output' => 'full']))[0])->toBe(['filtered' => 'full']);
 });
 
 it('skips linked local REST resources whose URL cannot become a request', function (): void {
@@ -353,7 +419,7 @@ it('skips linked local REST resources whose URL cannot become a request', functi
     $post['author'] = 19;
     $post['_links'] = ['wp:featuredmedia' => [['href' => 'media-route']], 'author' => [['href' => 'author-route']]];
 
-    $result = array_values($this->news->process_local_posts([$post], ['output' => 'json']))[0];
+    $result = array_values(newsShortcode()->process_local_posts([$post], ['output' => 'json']))[0];
 
     expect($result->thumbnail)->toBeFalse()
         ->and($result->author_name)->toBe('');
@@ -361,7 +427,7 @@ it('skips linked local REST resources whose URL cannot become a request', functi
 
 it('renders each output format from cached normalized data with sorting and offset', function (string $output): void {
     // Cache deliberately unordered results with enough data for every renderer.
-    $row = array_values($this->news->process_remote_posts([newsRemotePost()], ['output' => 'full']))[0];
+    $row = array_values(newsShortcode()->process_remote_posts([newsRemotePost()], ['output' => 'full']))[0];
     $older = (object) (array) $row;
     $older->title = 'Older entry';
     $older->date = '2026-01-01T00:00:00';
@@ -369,7 +435,7 @@ it('renders each output format from cached normalized data with sorting and offs
     when('wp_cache_get')->justReturn([10 => $older, 20 => $row]);
 
     // Render through the public shortcode dispatcher, not its private renderer.
-    $html = $this->news->display_shortcode($this->newsAtts + ['output' => $output, 'count' => 1, 'offset' => 1, 'object' => 'newsFixture', 'date_format' => 'Y/m/d']);
+    $html = newsShortcode()->display_shortcode(newsAtts() + ['output' => $output, 'count' => 1, 'offset' => 1, 'object' => 'newsFixture', 'date_format' => 'Y/m/d']);
     if ($output === 'json') {
         expect($html)->toBe('<!-- UAMSWP Output JSON --><script>var newsFixture = '.json_encode([$row, $older], JSON_THROW_ON_ERROR).';</script>');
     } elseif ($output === 'unknown') {
@@ -389,7 +455,7 @@ it('renders each output format from cached normalized data with sorting and offs
 
 it('renders explicit media and content fallbacks without omitted fixture properties', function (string $output): void {
     // Supply explicit absent values as a host-data filter can do in production.
-    $row = array_values($this->news->process_remote_posts([newsRemotePost()], ['output' => 'full']))[0];
+    $row = array_values(newsShortcode()->process_remote_posts([newsRemotePost()], ['output' => 'full']))[0];
     $row->image = false;
     $row->imagecaption = '';
     $row->thumbnail = false;
@@ -399,7 +465,7 @@ it('renders explicit media and content fallbacks without omitted fixture propert
     when('wp_cache_get')->justReturn([20 => $row]);
 
     // Assert fallback output and absent author/caption markup.
-    $html = $this->news->display_shortcode($this->newsAtts + ['output' => $output]);
+    $html = newsShortcode()->display_shortcode(newsAtts() + ['output' => $output]);
     if ($output === 'cards') {
         expect($html)->toContain('http://via.placeholder.com/560x350?text=Not%20Available');
     } elseif ($output === 'full') {
@@ -417,7 +483,7 @@ it('honors output overrides including empty strings and the final content filter
     expectApplied('uamswp_content_syndicate_news_output')->once()->andReturn($override);
     expectApplied('uamswp_content_syndicate_news')->once()->andReturnUsing(fn (string $content): string => '['.$content.']');
 
-    expect($this->news->display_shortcode($this->newsAtts))->toBe($expected);
+    expect(newsShortcode()->display_shortcode(newsAtts()))->toBe($expected);
 })->with([
     ['override', '[override]'],
     ['', '[]'],
@@ -425,7 +491,7 @@ it('honors output overrides including empty strings and the final content filter
 ]);
 
 it('returns an explicit error for an empty host', function (): void {
-    expect($this->news->display_shortcode(['host' => '']))->toBe('<!-- uamswp_news ERROR - an empty host was supplied -->');
+    expect(newsShortcode()->display_shortcode(['host' => '']))->toBe('<!-- uamswp_news ERROR - an empty host was supplied -->');
 });
 
 it('reads local normalized cache hits without dispatching REST requests', function (): void {
@@ -442,7 +508,7 @@ it('reads local normalized cache hits without dispatching REST requests', functi
     Functions\expect('wp_cache_set')->never();
 
     // Verify the generation-aware local cache namespace and preserved JSON keys.
-    expect($this->news->display_shortcode(['host' => 'https://local.example']))
+    expect(newsShortcode()->display_shortcode(['host' => 'https://local.example']))
         ->toBe('<!-- UAMSWP Output JSON --><script>var json_data = {"20":{"title":"Cached local"}};</script>')
         ->and($cacheRead)->toBe([md5('https://local.example/wp-json/wp/v2/posts?_embed=').':generation-7', 'uamswp-content']);
 });
@@ -463,6 +529,7 @@ it('caches local REST misses for both accepted and rejected statuses', function 
     {
         /**
          * @param  array<mixed>  $data
+         * @param  Closure(): int  $statusReader
          */
         public function __construct(public array $data, private Closure $statusReader) {}
 
@@ -485,7 +552,7 @@ it('caches local REST misses for both accepted and rejected statuses', function 
     // Assert successful normalization and the current false-cache write on failure.
     foreach ([200, 201, 404] as $code) {
         $status = $code;
-        $html = $this->news->display_shortcode(['host' => 'https://local.example']);
+        $html = newsShortcode()->display_shortcode(['host' => 'https://local.example']);
         expect($stored[0])->toBe(md5('https://local.example/wp-json/wp/v2/posts?_embed=').':generation-rest')
             ->and($stored[2])->toBe('uamswp-content');
         if ($code === 200) {
@@ -516,20 +583,20 @@ it('currently preserves the remote row on a local merge timestamp collision', fu
     Functions\expect('rest_do_request')->never();
 
     // Pin array-union precedence and the final reverse timestamp ordering.
-    expect($this->news->display_shortcode($this->newsAtts + ['local_count' => 2]))
+    expect(newsShortcode()->display_shortcode(newsAtts() + ['local_count' => 2]))
         ->toBe('<!-- UAMSWP Output JSON --><script>var json_data = {"30":{"title":"Local newest"},"20":{"title":"Remote wins"}};</script>');
 });
 
 it('leaves out local results when the local host override is empty', function (): void {
     // An empty local host cannot be turned into a request, so only the remote rows remain.
-    $this->news->local_extended_atts = ['local_host' => 'https://local.example'];
+    newsShortcode()->local_extended_atts = ['local_host' => 'https://local.example'];
     $remote = (object) ['title' => 'Remote only'];
     when('wp_cache_get_last_changed')->justReturn('generation-10');
     when('wp_cache_get')->alias(fn (string $key, string $group): array => $group === 'uamswp_news' ? [20 => $remote] : []);
 
     Functions\expect('rest_do_request')->never();
 
-    expect($this->news->display_shortcode($this->newsAtts + ['local_count' => 2, 'local_host' => '']))
+    expect(newsShortcode()->display_shortcode(newsAtts() + ['local_count' => 2, 'local_host' => '']))
         ->toBe('<!-- UAMSWP Output JSON --><script>var json_data = {"20":{"title":"Remote only"}};</script>');
 });
 
@@ -540,7 +607,7 @@ it('leaves out local results when the local host override is empty', function ()
  */
 it('uses local attribute overrides and a bounded count in the merged cache key', function (int $count, int $requested): void {
     // Make prefixed overrides observable without replacing WordPress REST classes.
-    $this->news->local_extended_atts = ['local_host' => 'https://local.example', 'local_query' => 'local-stories'];
+    newsShortcode()->local_extended_atts = ['local_host' => 'https://local.example', 'local_query' => 'local-stories'];
     when('get_site')->justReturn((object) ['domain' => 'unused.example', 'path' => '/unused/']);
     when('wp_cache_get_last_changed')->justReturn('generation-9');
 
@@ -554,7 +621,7 @@ it('uses local attribute overrides and a bounded count in the merged cache key',
     });
 
     // Assert the full normalized local request identity and cache generation.
-    expect($this->news->display_shortcode($this->newsAtts + ['local_count' => $count]))
+    expect(newsShortcode()->display_shortcode(newsAtts() + ['local_count' => $count]))
         ->toBe('<!-- UAMSWP Output JSON --><script>var json_data = [];</script>')
         ->and($localRead)->toBe([md5('https://local.example/wp-json/wp/v2/local-stories?per_page='.$requested.'&_embed=').':generation-9', 'uamswp-content']);
 })->with([[1, 1], [99, 99], [100, 100], [101, 100]]);
@@ -579,7 +646,7 @@ it('bounds remote request counts while retaining the current JSON offset behavio
     when('wp_cache_set')->justReturn(true);
 
     // Assert the request boundary rather than a mocked helper call sequence.
-    expect($this->news->display_shortcode($this->newsAtts + ['count' => $count, 'offset' => $offset]))
+    expect(newsShortcode()->display_shortcode(newsAtts() + ['count' => $count, 'offset' => $offset]))
         ->toBe('<!-- UAMSWP Output JSON --><script>var json_data = [];</script>');
     parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
     expect(isset($query['_embed']))->toBeTrue()
@@ -601,7 +668,7 @@ it('requests all three reduced headline fields and renders the normalized respon
     when('wp_cache_set')->justReturn(true);
 
     // Verify reduced field order along with observable headline link and title.
-    $html = $this->news->display_shortcode($this->newsAtts + ['output' => 'headlines']);
+    $html = newsShortcode()->display_shortcode(newsAtts() + ['output' => 'headlines']);
     parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
     expect($query['_fields'])->toBe(['title', 'date', 'link'])
         ->and($html)->toContain('<a href="https://remote.example/story">Distinct title</a>');
@@ -624,6 +691,7 @@ it('normalizes and caches merged local REST misses only on exact success', funct
     {
         /**
          * @param  array<mixed>  $data
+         * @param  Closure(): int  $statusReader
          */
         public function __construct(public array $data, private Closure $statusReader) {}
 
@@ -646,7 +714,7 @@ it('normalizes and caches merged local REST misses only on exact success', funct
     // Assert rejected merge responses cache an empty array, unlike local-only misses.
     foreach ([200, 201, 404] as $code) {
         $status = $code;
-        $html = $this->news->display_shortcode($this->newsAtts + ['local_count' => 1]);
+        $html = newsShortcode()->display_shortcode(newsAtts() + ['local_count' => 1]);
         expect($stored[0])->toBe(md5('https://remote.example/wp-json/wp/v2/posts?per_page=1&_embed=').':generation-merge')
             ->and($stored[2])->toBe('uamswp-content');
         if ($code === 200) {
@@ -674,8 +742,8 @@ it('fetches and caches successful remote normalization including invalid JSON', 
     });
 
     // Verify content, cache identity, normalized data, and the ten-minute lifetime.
-    $html = $this->news->display_shortcode($this->newsAtts);
-    expect($stored[0])->toBe(md5(serialize($this->news->process_attributes($this->newsAtts))))
+    $html = newsShortcode()->display_shortcode(newsAtts());
+    expect($stored[0])->toBe(md5(serialize(newsShortcode()->process_attributes(newsAtts()))))
         ->and($stored[1])->toHaveCount($expectedCount)
         ->and($stored[2])->toBe('uamswp_news')
         ->and($stored[3])->toBe(600)
@@ -692,7 +760,7 @@ it('does not cache remote errors or 404 responses', function (bool $error, int $
     Functions\expect('wp_remote_retrieve_body')->never();
     Functions\expect('wp_cache_set')->never();
 
-    expect($this->news->display_shortcode($this->newsAtts))->toBe('<!-- UAMSWP Output JSON --><script>var json_data = [];</script>');
+    expect(newsShortcode()->display_shortcode(newsAtts()))->toBe('<!-- UAMSWP Output JSON --><script>var json_data = [];</script>');
 })->with([[true, 200], [false, 404]]);
 
 it('registers the News shortcode and stylesheet hook on construction', function (): void {
@@ -717,7 +785,7 @@ it('enqueues News styles only when the current post contains its shortcode', fun
         Functions\expect('wp_enqueue_style')->never();
     }
 
-    $this->news->enqueue_syndication_stylesheet();
+    newsShortcode()->enqueue_syndication_stylesheet();
     expect(true)->toBeTrue();
 })->with([[false, false], [true, false], [true, true]]);
 
@@ -727,7 +795,7 @@ it('advertises the current Shortcake attribute names and numeric boundaries', fu
     when('shortcode_ui_register_for_shortcode')->alias(function (string $name, array $config) use (&$registered): void {
         $registered = [$name, $config];
     });
-    $this->news->build_shortcake();
+    newsShortcode()->build_shortcake();
 
     // Pin the existing postid attribute mismatch as current configuration.
     expect($registered)->toBe(['uamswp_news', [
@@ -764,9 +832,9 @@ it('advertises the current Shortcake attribute names and numeric boundaries', fu
 
 it('keeps only post objects from a cached or decoded list', function (): void {
     $keep = new stdClass;
-    $method = new ReflectionMethod($this->news, 'posts');
+    $method = new ReflectionMethod(newsShortcode(), 'posts');
 
-    expect($method->invoke($this->news, ['a' => $keep, 'junk', 3 => ['array']]))->toBe(['a' => $keep])
-        ->and($method->invoke($this->news, false))->toBeNull()
-        ->and($method->invoke($this->news, []))->toBe([]);
+    expect($method->invoke(newsShortcode(), ['a' => $keep, 'junk', 3 => ['array']]))->toBe(['a' => $keep])
+        ->and($method->invoke(newsShortcode(), false))->toBeNull()
+        ->and($method->invoke(newsShortcode(), []))->toBe([]);
 });
