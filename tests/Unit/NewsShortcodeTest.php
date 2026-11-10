@@ -297,7 +297,11 @@ it('normalizes local REST media fallbacks and author responses through mocked di
     $media = ['media_details' => ['sizes' => []], 'source_url' => 'original-local.jpg'];
     $author = ['name' => 'Local author'];
     when('rest_do_request')->alias(function (stdClass $request) use (&$media, &$author): object {
-        return (object) ['data' => $request->fixture_route === 'author-route' ? $author : $media];
+        return (object) ['data' => match ($request->fixture_route) {
+            'author-route' => $author,
+            'media-route' => $media,
+            default => [],
+        }];
     });
     $post = newsLocalPost();
     $post['author'] = 19;
@@ -756,4 +760,13 @@ it('advertises the current Shortcake attribute names and numeric boundaries', fu
         ],
         'post_type' => ['post', 'page'],
     ]]);
+});
+
+it('keeps only post objects from a cached or decoded list', function (): void {
+    $keep = new stdClass;
+    $method = new ReflectionMethod($this->news, 'posts');
+
+    expect($method->invoke($this->news, ['a' => $keep, 'junk', 3 => ['array']]))->toBe(['a' => $keep])
+        ->and($method->invoke($this->news, false))->toBeNull()
+        ->and($method->invoke($this->news, []))->toBe([]);
 });

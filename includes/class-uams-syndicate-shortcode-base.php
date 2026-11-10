@@ -173,7 +173,7 @@ class UAMS_Syndicate_Shortcode_Base
             if (is_array($value)) {
                 $value = $value[$key] ?? null;
             } elseif (is_object($value)) {
-                $value = $value->{(string) $key} ?? null;
+                $value = $value->{$key} ?? null;
             } else {
                 return null;
             }
