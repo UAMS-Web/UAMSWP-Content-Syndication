@@ -6,7 +6,7 @@ name: CI
 # `checks` job, so this plugin does not carry a copy that drifts. The call switches on the
 # two jobs only a plugin runs (`floor-lint`, `download-archive`), runs on Linux only except
 # for Pest, mutates the PHP files a pull request or push changes (the whole plugin on a manual
-# run) with `composer mutate`, and runs the unit suite as `composer test:unit`.
+# or weekly scheduled run) with `composer mutate`, and runs the unit suite as `composer test:unit`.
 # `all-platform-jobs: pest` keeps the unit suite on Linux, macOS and Windows (#20); the chain
 # classifies Pint, Rector and PHPStan as giving the same result on any platform. `phpcs` stays
 # off: this plugin has no PHPCS configuration. The chain's own header lists every input.
@@ -26,6 +26,11 @@ on:
   pull_request:
   push:
     branches: [master]
+  # The full mutation pass, weekly: it mutates every first-party file `composer mutate` covers
+  # (the chain gives a scheduled run `mutate-full-timeout-minutes`, 180 by default, in place of the
+  # 45 minutes a pull request gets), so it catches decay no pull request touched. Monday 07:17 UTC.
+  schedule:
+    - cron: '17 7 * * 1'
   workflow_dispatch:
 
 # A new push to a pull request cancels that pull request's stale run. Every other run gets a
