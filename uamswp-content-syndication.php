@@ -8,6 +8,7 @@ Description: Content Syndication plugin for uams.edu & uamshealth.com
 Author: UAMS Web Services
 Author URI: https://communications.uams.edu/web/
 Version: 1.4.5.3
+Requires at least: 6.8
 Requires PHP: 8.2
 */
 
