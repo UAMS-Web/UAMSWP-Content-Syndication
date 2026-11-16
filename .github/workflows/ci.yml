@@ -45,8 +45,8 @@ permissions:
 jobs:
   # The shared chain. Its checks report as `checks / <job name> (<operating system>)`.
   checks:
-    # Pinned to the v0.9.0 tag (5523d479fa9cdc1c3bfdd581f3f07f730da93451).
-    uses: UAMS-Web/uams-ci-workflows/.github/workflows/ci.yml@5523d479fa9cdc1c3bfdd581f3f07f730da93451
+    # Pinned to the v0.13.0 tag.
+    uses: UAMS-Web/uams-ci-workflows/.github/workflows/ci.yml@v0.13.0
     with:
       linux-only: true
       all-platform-jobs: pest
