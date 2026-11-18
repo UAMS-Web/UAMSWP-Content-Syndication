@@ -24,6 +24,8 @@ Use it to register a shortcode built on `UAMS_Syndicate_Shortcode_Base`, which i
 
 The post that `uams_content_syndication_host_data` receives is an object for a remote post and an array for a local one.
 
+`uams_content_syndication_host_data` runs only when a result is fetched, not when it is served from the cache, so a change to that filter shows once the cached result expires (or after `cache_bust` changes, for a remote list). With `local_count` set, `uamswp_content_syndicate_taxonomy_filters` runs a second time, for the merged request.
+
 ## Examples
 
 Change the default source for every shortcode on the site:

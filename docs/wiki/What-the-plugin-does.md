@@ -26,6 +26,8 @@ The request is routed in one of three ways:
 
 The `scheme` attribute does not change the scheme of the request; the table above decides it.
 
+**Note:** the first route needs pretty permalinks on this site. Under plain permalinks the internal request cannot be built, and a list read from this site is empty.
+
 ## What is kept from each post
 
 For each post the plugin keeps the title, link and date, and for every format except `headlines` also the ID, modified date, content, excerpt, author name and featured image. [Output formats](Output-formats.md#fields-kept-for-each-post) lists the fields. The `uams_content_syndication_host_data` filter can change what is kept ([Filters and actions](Filters-and-actions.md)).
@@ -43,7 +45,12 @@ Without a persistent object cache, WordPress keeps the object cache only for the
 
 ## Merging local posts into a remote list
 
-`local_count` asks for that many posts through `rest_do_request()` and merges them into the remote list before it is sorted and cut. Attributes prefixed `local_` (for example `local_host`) let the merged request read a different source, but the stock `[uamswp_news]` declares none of them, so the merged request reuses `host` or `site`. A shortcode built on the base class can declare them in its `local_extended_atts` property. When a local and a remote post share a timestamp, the remote one is kept.
+`local_count` asks for that many posts with `rest_do_request()`, which can only reach this site's REST API, and merges them into the list before it is sorted and cut. The stock `[uamswp_news]` declares no `local_` attributes, so the merged request is built from the same `host` or `site` as the main one:
+
+- When that is another site, the merged request returns nothing and `local_count` has no effect.
+- When it is this site, it reads the same posts again, and duplicates are dropped.
+
+Only a shortcode built on the base class that declares `local_host` or `local_site` in its `local_extended_atts` property can merge posts from this site into a list from another one. When a local and a remote post share a timestamp, the remote one is kept.
 
 ## Reference
 

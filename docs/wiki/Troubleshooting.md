@@ -18,7 +18,7 @@ Written against v1.4.5.4.
 <!-- uamswp_news ERROR - an empty host was supplied -->
 ```
 
-**Cause:** neither `site` nor `host` gives a host name, for example `site=""` together with `host=""`, or a value with no host part.
+**Cause:** `site` is set to a value with no host name (then `host` is not used), or `site` is empty and `host` has no host name.
 
 **Fix:** set `site` to the full address of the source, such as `site="https://news.example.org/"`.
 
@@ -30,7 +30,7 @@ Written against v1.4.5.4.
 
 ## The list is empty
 
-**Cause:** the source answered with no posts, or with something that is not a list of posts. An error (a refused connection, a timeout) and a `404` print an empty list and are tried again on the next view; any other non-list answer, such as a `401` or a `500` error object, is cached as empty for 10 minutes.
+**Cause:** for a list read from this site, plain permalinks: the internal request needs pretty permalinks, and without them the list is empty. Otherwise, the source answered with no posts, or with something that is not a list of posts. An error (a refused connection, a timeout) and a `404` print an empty list and are tried again on the next view; any other non-list answer, such as a `401` or a `500` error object, is cached as empty for 10 minutes.
 
 **Fix:** open `https://<source>/wp-json/wp/v2/posts` in a browser (with the same `query`, if one is set). A JSON list there means the plugin should read it; anything else is the source's problem to fix. Once it answers, change `cache_bust` to skip the cached empty result ([Getting fresh content](Getting-fresh-content.md)).
 

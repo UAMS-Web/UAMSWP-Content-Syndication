@@ -20,11 +20,11 @@ Prints an HTML comment and a script that assigns the posts to a global variable,
 <!-- UAMSWP Output JSON --><script>var news_items = {"1767225600":{"ID":101,"title":"Example title", ...}};</script>
 ```
 
-The object is keyed by each post's publication time as a Unix timestamp, newest first. It includes the posts `offset` would skip. A script on the page reads the variable.
+Without `count` or `offset`, the variable holds an object keyed by each post's publication time as a Unix timestamp, written newest first. A script that walks it with `Object.keys()` or `for...in` gets the keys in ascending order, oldest first, because they are numeric. With `count` or `offset` set, the keys are dropped and the variable holds an array, newest first. Either way it includes the posts `offset` would skip. A script on the page reads the variable.
 
 ## headlines
 
-A bulleted list of titles, each linking to the post. Only the title, date and link of each post are requested, which keeps the response small.
+A bulleted list of titles, each linking to the post. For another site, only the title, date and link of each post are requested, which keeps the response small.
 
 ## excerpts
 

@@ -18,7 +18,7 @@ On the post and page edit screens, as **News Syndication** with an RSS icon in t
 | Offset | `offset` | number, at least 0 | Headline and Excerpt |
 | Post ID | `postid` | number | Full |
 
-With Card selected the script hides all four fields below Format.
+With Card selected the script hides all four fields below Format. Until a format is chosen, all fields are shown.
 
 **Warning:** the Post ID field writes `postid`, which the shortcode does not accept, so the value is dropped and a Full list shows the newest posts rather than the chosen one. Type `id="1234"` on the shortcode instead ([Troubleshooting](Troubleshooting.md#the-post-id-field-has-no-effect)).
 
