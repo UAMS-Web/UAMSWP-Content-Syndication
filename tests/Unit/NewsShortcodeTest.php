@@ -600,6 +600,46 @@ it('leaves out local results when the local host override is empty', function ()
         ->toBe('<!-- UAMSWP Output JSON --><script>var json_data = {"20":{"title":"Remote only"}};</script>');
 });
 
+it('merges the posts of this site into a list from another site', function (): void {
+    // A remote list with no local source named: the merged request must read this site, not the remote one.
+    $remote = (object) ['title' => 'Remote older'];
+    $local = (object) ['title' => 'Local newer'];
+    $localKey = null;
+    when('wp_cache_get_last_changed')->justReturn('generation-11');
+    when('wp_cache_get')->alias(function (string $key, string $group) use (&$localKey, $remote, $local): array {
+        if ($group === 'uamswp_news') {
+            return [10 => $remote];
+        }
+        $localKey = $key;
+
+        return [20 => $local];
+    });
+
+    Functions\expect('rest_do_request')->never();
+
+    expect(newsShortcode()->display_shortcode(newsAtts() + ['local_count' => 1]))
+        ->toBe('<!-- UAMSWP Output JSON --><script>var json_data = {"20":{"title":"Local newer"},"10":{"title":"Remote older"}};</script>')
+        ->and($localKey)->toBe(md5('https://local.example/wp-json/wp/v2/posts?per_page=1&_embed=').':generation-11');
+});
+
+it('sends no merged request when local_count is zero', function (): void {
+    // The default `local_count` of 0 leaves the merge out entirely: no local cache read and no REST dispatch.
+    $remote = (object) ['title' => 'Remote only'];
+    $groups = [];
+    when('wp_cache_get_last_changed')->justReturn('generation-12');
+    when('wp_cache_get')->alias(function (string $key, string $group) use (&$groups, $remote): array {
+        $groups[] = $group;
+
+        return [10 => $remote];
+    });
+
+    Functions\expect('rest_do_request')->never();
+
+    expect(newsShortcode()->display_shortcode(newsAtts() + ['local_count' => 0]))
+        ->toBe('<!-- UAMSWP Output JSON --><script>var json_data = {"10":{"title":"Remote only"}};</script>')
+        ->and($groups)->toBe(['uamswp_news']);
+});
+
 /**
  * Local cap equivalents: 3b1584c92448af1f and 7a682d28550d370a. Changing >100
  * to >=100 or >99 only changes which expression supplies 100, and absint()
@@ -715,7 +755,7 @@ it('normalizes and caches merged local REST misses only on exact success', funct
     foreach ([200, 201, 404] as $code) {
         $status = $code;
         $html = newsShortcode()->display_shortcode(newsAtts() + ['local_count' => 1]);
-        expect($stored[0])->toBe(md5('https://remote.example/wp-json/wp/v2/posts?per_page=1&_embed=').':generation-merge')
+        expect($stored[0])->toBe(md5('https://local.example/wp-json/wp/v2/posts?per_page=1&_embed=').':generation-merge')
             ->and($stored[2])->toBe('uamswp-content');
         if ($code === 200) {
             expect($storedTitle)->toBe('Distinct title')
