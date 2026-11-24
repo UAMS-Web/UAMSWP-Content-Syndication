@@ -252,6 +252,10 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
                 }
             }
             $local_atts['count'] = $atts['local_count'];
+            // A shortcode that declares no `local_host` or `local_site` reads the merged posts from this site.
+            if (! array_key_exists('local_host', $atts) && ! array_key_exists('local_site', $atts)) {
+                $local_atts['site'] = get_home_url();
+            }
             $local_url = $this->get_request_url($local_atts);
             if ($local_url !== false) {
                 $request = $this->build_initial_request($local_url, $local_atts);
