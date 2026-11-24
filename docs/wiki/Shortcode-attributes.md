@@ -35,7 +35,7 @@ The source site must support the `filter` parameter for these to work: [Filterin
 | Attribute | Default | Effect |
 | --- | --- | --- |
 | `count` | not set | How many posts to show. Not set, the source's own page size applies (10 on a default WordPress site). One request asks for at most 100. |
-| `offset` | `0` | How many of the newest posts to skip in the printed formats. Set `count` with it: [Splitting a feed across two lists](Splitting-a-feed-across-two-lists.md). |
+| `offset` | `0` | How many of the newest posts to skip in the printed formats. Without `count`, the source's default page less `offset` is shown; set `count` for an exact length: [Splitting a feed across two lists](Splitting-a-feed-across-two-lists.md). |
 | `local_count` | `0` | How many posts to merge in through this site's REST API. With the stock shortcode it has no effect on a list from another site: [What the plugin does](What-the-plugin-does.md#merging-local-posts-into-a-remote-list). |
 
 ## Output

@@ -185,7 +185,8 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
         $request = $this->build_initial_request($site_url, $atts);
         $request_url = $this->build_taxonomy_filters($atts, $request['url']);
 
-        if (! empty($atts['offset'])) {
+        // Without a count the request keeps the source's default page, and the formats skip the offset.
+        if (! empty($atts['offset']) && $this->absint_att($atts, 'count') !== 0) {
             $atts['count'] = $this->absint_att($atts, 'count') + $this->absint_att($atts, 'offset');
         }
         if ($atts['count']) {

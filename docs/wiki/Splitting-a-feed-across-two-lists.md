@@ -24,7 +24,7 @@ A news page often features the newest article as a card and lists the next few a
 
 With `offset` set, the plugin requests `count` plus `offset` posts, then skips the first `offset` of them when it prints. So `count="4" offset="1"` requests five posts and shows four. Use the same filters on both shortcodes, or the second list skips posts the first one never showed.
 
-**Warning:** always set `count` together with `offset`. With `offset` alone, the plugin requests `offset` posts and then skips all of them, so the list is empty ([Troubleshooting](Troubleshooting.md#a-list-with-offset-shows-nothing)).
+**Note:** set `count` together with `offset` for a list of a known length. With `offset` alone, the plugin asks for the source's default page and skips the first `offset` posts of it, so the list holds the default page less `offset` ([Troubleshooting](Troubleshooting.md#a-list-with-offset-shows-fewer-posts-than-expected)).
 
 **Note:** the JSON output (`output="json"` or no `output`) does not skip anything: it includes the offset posts.
 

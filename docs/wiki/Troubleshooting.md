@@ -5,7 +5,7 @@ Written against v1.4.5.4.
 - [The page source shows an empty host error](#the-page-source-shows-an-empty-host-error)
 - [Nothing appears where the shortcode is](#nothing-appears-where-the-shortcode-is)
 - [The list is empty](#the-list-is-empty)
-- [A list with offset shows nothing](#a-list-with-offset-shows-nothing)
+- [A list with offset shows fewer posts than expected](#a-list-with-offset-shows-fewer-posts-than-expected)
 - [The list ignores the category or tag](#the-list-ignores-the-category-or-tag)
 - [The Post ID field has no effect](#the-post-id-field-has-no-effect)
 - [A new article does not appear](#a-new-article-does-not-appear)
@@ -34,15 +34,15 @@ Written against v1.4.5.4.
 
 **Fix:** open `https://<source>/wp-json/wp/v2/posts` in a browser (with the same `query`, if one is set). A JSON list there means the plugin should read it; anything else is the source's problem to fix. Once it answers, change `cache_bust` to skip the cached empty result ([Getting fresh content](Getting-fresh-content.md)).
 
-## A list with offset shows nothing
+## A list with offset shows fewer posts than expected
 
 ```text
 [uamswp_news site="https://news.example.org/" output="headlines" offset="1"]
 ```
 
-**Cause:** with `offset` set and `count` not set, the plugin requests `offset` posts and then skips all of them.
+**Cause:** with `offset` set and `count` not set, the plugin asks for the source's default page of posts and skips the first `offset` of them when it prints. The default page is whatever the source's REST API returns without `per_page` (10 posts on a stock WordPress site), so the list holds that many less `offset`.
 
-**Fix:** set `count` too: `count="4" offset="1"` shows four posts after the first. See [Splitting a feed across two lists](Splitting-a-feed-across-two-lists.md).
+**Fix:** set `count` for an exact length: `count="4" offset="1"` shows four posts after the first. See [Splitting a feed across two lists](Splitting-a-feed-across-two-lists.md).
 
 ## The list ignores the category or tag
 
