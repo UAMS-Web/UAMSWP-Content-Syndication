@@ -453,6 +453,21 @@ it('renders each output format from cached normalized data with sorting and offs
     }
 })->with(['json', 'headlines', 'excerpts', 'cards', 'full', 'unknown']);
 
+it('skips the offset posts of the default page when no count is set', function (string $output): void {
+    // Cache two posts, as the source's default page would return them.
+    $row = array_values(newsShortcode()->process_remote_posts([newsRemotePost()], ['output' => 'full']))[0];
+    $older = (object) (array) $row;
+    $older->title = 'Older entry';
+    $older->date = '2026-01-01T00:00:00';
+
+    when('wp_cache_get')->justReturn([10 => $older, 20 => $row]);
+
+    // An offset alone must leave the newest post out and keep the rest, not empty the list.
+    $html = newsShortcode()->display_shortcode(newsAtts() + ['output' => $output, 'offset' => 1, 'date_format' => 'Y/m/d']);
+    expect($html)->toContain('UAMSWP Output '.ucfirst($output), 'Older entry')
+        ->not()->toContain('Distinct title');
+})->with(['headlines', 'excerpts', 'cards', 'full']);
+
 it('renders explicit media and content fallbacks without omitted fixture properties', function (string $output): void {
     // Supply explicit absent values as a host-data filter can do in production.
     $row = array_values(newsShortcode()->process_remote_posts([newsRemotePost()], ['output' => 'full']))[0];
@@ -651,7 +666,7 @@ it('bounds remote request counts while retaining the current JSON offset behavio
     parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
     expect(isset($query['_embed']))->toBeTrue()
         ->and(isset($query['per_page']) ? (int) $query['per_page'] : null)->toBe($perPage);
-})->with([[false, 0, null], [0, 0, null], [1, 0, 1], [99, 0, 99], [99, 1, 100], [100, 0, 100], [101, 0, 100], [-3, 0, 3], [1, 2, 3]]);
+})->with([[false, 0, null], [0, 0, null], [1, 0, 1], [99, 0, 99], [99, 1, 100], [100, 0, 100], [101, 0, 100], [-3, 0, 3], [1, 2, 3], [false, 1, null], [0, 2, null]]);
 
 it('requests all three reduced headline fields and renders the normalized response', function (): void {
     // Capture a genuine News-built URL at the HTTP boundary.
