@@ -13,7 +13,7 @@ function updateNewsOptionsListener(changed, collection, shortcode) {
         category = attributeByName('site_category_slug'),
         count = attributeByName('count'),
         offset = attributeByName('offset'),
-        postid = attributeByName('postid');
+        postid = attributeByName('id');
 
     if( typeof updatedVal === 'undefined' ) {
         return;

@@ -16,11 +16,11 @@ On the post and page edit screens, as **News Syndication** with an RSS icon in t
 | Category | `site_category_slug` | text | Headline and Excerpt |
 | Count | `count` | number, at least 1 | Headline and Excerpt |
 | Offset | `offset` | number, at least 0 | Headline and Excerpt |
-| Post ID | `postid` | number | Full |
+| Post ID | `id` | number | Full |
 
 With Card selected the script hides all four fields below Format. Until a format is chosen, all fields are shown.
 
-**Warning:** the Post ID field writes `postid`, which the shortcode does not accept, so the value is dropped and a Full list shows the newest posts rather than the chosen one. Type `id="1234"` on the shortcode instead ([Troubleshooting](Troubleshooting.md#the-post-id-field-has-no-effect)).
+**Note:** the Post ID field writes `id`, the attribute the shortcode reads. A shortcode saved before this was fixed carries `postid="1234"`, which the shortcode ignores: change it to `id="1234"` ([Troubleshooting](Troubleshooting.md#a-saved-post-id-has-no-effect)).
 
 The form has no field for `site` or `host`, so a shortcode inserted with it reads the default host until the attribute is added by hand.
 

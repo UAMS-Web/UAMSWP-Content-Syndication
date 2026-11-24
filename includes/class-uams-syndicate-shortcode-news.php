@@ -120,7 +120,7 @@ class UAMS_Syndicate_Shortcode_News extends UAMS_Syndicate_Shortcode_Base
                     /** ID - ID of specific of articles */
                     [
                         'label' => esc_html__('Post ID', 'uamswp_news'),
-                        'attr' => 'postid',
+                        'attr' => 'id',
                         'type' => 'number',
                         'description' => 'Specific ID of article',
                     ],

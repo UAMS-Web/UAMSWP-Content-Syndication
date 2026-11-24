@@ -797,7 +797,7 @@ it('advertises the current Shortcake attribute names and numeric boundaries', fu
     });
     newsShortcode()->build_shortcake();
 
-    // Pin the existing postid attribute mismatch as current configuration.
+    // The Post ID field is registered under the attribute name the shortcode reads.
     expect($registered)->toBe(['uamswp_news', [
         'label' => 'News Syndication',
         'listItemImage' => 'dashicons-rss',
@@ -822,12 +822,43 @@ it('advertises the current Shortcake attribute names and numeric boundaries', fu
                 'meta' => ['placeholder' => '0', 'min' => '0', 'step' => '1'],
             ],
             [
-                'label' => 'Post ID', 'attr' => 'postid', 'type' => 'number',
+                'label' => 'Post ID', 'attr' => 'id', 'type' => 'number',
                 'description' => 'Specific ID of article',
             ],
         ],
         'post_type' => ['post', 'page'],
     ]]);
+});
+
+it('keeps every attribute the editor form registers and sends the chosen post ID', function (): void {
+    // Collect the attribute names the form registers.
+    $registered = null;
+    when('shortcode_ui_register_for_shortcode')->alias(function (string $name, array $config) use (&$registered): void {
+        $registered = $config;
+    });
+    newsShortcode()->build_shortcake();
+    $names = array_column(is_array($registered) ? $registered['attrs'] : [], 'attr');
+
+    // Give each form attribute a value and confirm the shortcode keeps every one of them.
+    $given = array_fill_keys($names, '1234');
+    $kept = newsShortcode()->process_attributes($given);
+    expect(array_diff_key($given, $kept))->toBe([]);
+
+    // Follow the form's Post ID value to the request the source receives.
+    $url = '';
+    when('wp_cache_get')->justReturn(false);
+    when('wp_remote_get')->alias(function (string $request) use (&$url): array {
+        $url = $request;
+
+        return [];
+    });
+    when('is_wp_error')->justReturn(false);
+    when('wp_remote_retrieve_response_code')->justReturn(200);
+    when('wp_remote_retrieve_body')->justReturn('[]');
+    when('wp_cache_set')->justReturn(true);
+    newsShortcode()->display_shortcode(newsAtts() + ['output' => 'full', 'id' => '1234']);
+    parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+    expect($query['filter']['p'] ?? null)->toBe('1234');
 });
 
 it('keeps only post objects from a cached or decoded list', function (): void {
