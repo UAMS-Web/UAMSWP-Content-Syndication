@@ -7,7 +7,7 @@ Written against v1.4.5.4.
 - [The list is empty](#the-list-is-empty)
 - [A list with offset shows nothing](#a-list-with-offset-shows-nothing)
 - [The list ignores the category or tag](#the-list-ignores-the-category-or-tag)
-- [The Post ID field has no effect](#the-post-id-field-has-no-effect)
+- [A saved Post ID has no effect](#a-saved-post-id-has-no-effect)
 - [A new article does not appear](#a-new-article-does-not-appear)
 - [The list is unstyled](#the-list-is-unstyled)
 - [More than 100 posts are asked for and 100 appear](#more-than-100-posts-are-asked-for-and-100-appear)
@@ -50,11 +50,11 @@ Written against v1.4.5.4.
 
 **Fix:** have the source site restore the `filter` parameter, or use `query` with the core parameters instead, for example `query="posts?categories=12"` (IDs, not slugs). See [Filtering by category, tag or post](Filtering-by-category-tag-or-post.md).
 
-## The Post ID field has no effect
+## A saved Post ID has no effect
 
-**Cause:** the [Editor form](Editor-form.md)'s Post ID field writes `postid="1234"`, and the shortcode's attribute is `id`. The unknown attribute is dropped.
+**Cause:** a shortcode inserted with the [Editor form](Editor-form.md) before the form was fixed carries `postid="1234"`, and the shortcode's attribute is `id`. The unknown attribute is dropped, so a Full list shows the newest posts.
 
-**Fix:** edit the shortcode by hand to `id="1234"`.
+**Fix:** edit the shortcode to `id="1234"`. A shortcode inserted with the form now writes `id`.
 
 ## A new article does not appear
 
